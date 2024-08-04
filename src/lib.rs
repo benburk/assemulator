@@ -1,9 +1,9 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 mod assembler;
+mod get_input;
 mod mask;
 mod port;
 mod processor;
-mod get_input;
 mod register;
 
 use std::path::PathBuf;
@@ -57,7 +57,6 @@ pub fn run<T: Processor>() {
             if debug {
                 state.debug();
                 input("> ");
-                
             }
             while state.step() != 0 {
                 if debug {

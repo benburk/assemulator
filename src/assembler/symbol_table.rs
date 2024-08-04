@@ -4,7 +4,7 @@ use crate::mask;
 
 use super::{expression, format_error, parser::Rule, template::Template, Token};
 
-fn interpret_escaped_chars(text: &str) -> String {
+pub fn interpret_escaped_chars(text: &str) -> String {
     let mut out = String::new();
     let mut chars = text.chars();
     while let Some(c) = chars.next() {

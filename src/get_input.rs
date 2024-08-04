@@ -1,6 +1,5 @@
 use std::io::Write;
 
-
 /// Gets input string from user
 ///
 /// # Panics

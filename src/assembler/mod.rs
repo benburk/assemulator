@@ -6,7 +6,7 @@ use std::{
 
 use parser::{parse, Rule};
 use pest::iterators::{Pair, Pairs};
-use symbol_table::SymbolTable;
+use symbol_table::{interpret_escaped_chars, SymbolTable};
 use template::Template;
 
 use crate::{Argument, Processor};
@@ -164,7 +164,7 @@ impl<T: Processor> Assembler<T> {
             }
             "endif" => {}
             "include" => {
-                let filename = tokens.next().expect("Filename").into_inner().as_str();
+                let filename = tokens.next().expect("Filename").as_str();
                 let filename = path.parent().unwrap().join(filename);
 
                 if self.included_files.contains(&filename) && label.is_none() {
@@ -184,6 +184,15 @@ impl<T: Processor> Assembler<T> {
                 }
                 self.declare_data_label(label)?;
                 self.data.resize(self.data.len() + count, 0);
+            }
+            "strz" => {
+                // null-terminated string
+                self.declare_data_label(label)?;
+                for pair in tokens {
+                    let parsed = interpret_escaped_chars(pair.as_str());
+                    self.data.extend(parsed.as_bytes());
+                    self.data.push(0);
+                }
             }
             _ => Err(format_error(&command, "unknown directive"))?,
         }

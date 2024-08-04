@@ -20,14 +20,13 @@ expression2 = _{ unary ~ (
 
 expression = {expression2}
 
-
 char = @{ !("\\" | "\"") ~ ASCII | "\\" ~ ("n"|"t"|"\\"|"0"|"\"") }
-
-string = ${ "\"" ~ char* ~ "\"" }
+string = @{ char* }
+string_quoted = _{ "\"" ~ string ~ "\"" }
 character = ${ "'" ~ char ~ "'" }
 
 
-arg = _{ expression | character | string }
+arg = _{ expression | character | string_quoted }
 arg_list = _{ arg ~ ("," ~ arg)* }
 
 directive = { "." ~ identifier ~ arg_list? }
