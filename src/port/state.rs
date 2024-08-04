@@ -1,9 +1,8 @@
 use std::collections::VecDeque;
 
-use super::{
-    util::{input, read_int},
-    Port,
-};
+use crate::get_input::input;
+
+use super::{util::read_int, Port};
 
 #[derive(Default)]
 pub struct State<T> {

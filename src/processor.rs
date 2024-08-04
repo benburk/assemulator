@@ -50,4 +50,6 @@ pub trait Processor: Default {
     /// it, and executing it. The function returns the number of cycles it took to execute.
     /// If zero is returned, execution is stopped.
     fn step(&mut self) -> usize;
+
+    fn debug(&self) {}
 }

@@ -3,11 +3,13 @@ mod assembler;
 mod mask;
 mod port;
 mod processor;
+mod get_input;
 mod register;
 
 use std::path::PathBuf;
 
 use clap::Parser;
+use get_input::input;
 pub use mask::mask;
 pub use port::{Port, State};
 pub use processor::{Argument, Processor};
@@ -30,7 +32,11 @@ enum Action {
     /// Assemble the program
     Assemble,
     /// Run the program
-    Run,
+    Run {
+        /// Debug
+        #[clap(long, default_value = "false")]
+        debug: bool,
+    },
 }
 
 pub fn run<T: Processor>() {
@@ -46,9 +52,19 @@ pub fn run<T: Processor>() {
             println!("Data: {:#04x?}", asm.data);
             println!("Program: {:#04x?}", asm.program);
         }
-        Action::Run => {
+        Action::Run { debug } => {
             let mut state = T::new(asm.start, asm.program, asm.data);
-            while state.step() != 0 {}
+            if debug {
+                state.debug();
+                input("> ");
+                
+            }
+            while state.step() != 0 {
+                if debug {
+                    state.debug();
+                    input("> ");
+                }
+            }
         }
     }
 }
