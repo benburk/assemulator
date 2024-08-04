@@ -2,7 +2,7 @@ use std::num::Wrapping;
 
 use assemulator::{mask, run, Argument, Port, Processor, State};
 
-mod opcode;
+mod enums;
 
 type Word = u16;
 type Register = assemulator::Register<8>;
@@ -39,7 +39,7 @@ struct Risc16 {
 }
 
 impl Processor for Risc16 {
-    type Opcode = opcode::Opcode;
+    type Opcode = enums::Opcode;
     type Register = Register;
 
     fn new(program_counter: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
@@ -57,7 +57,7 @@ impl Processor for Risc16 {
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String> {
-        use opcode::Opcode::*;
+        use enums::Opcode::*;
         use Argument::{Imm, Reg};
         let instruction = match (opcode, arguments) {
             // add
@@ -87,6 +87,7 @@ impl Processor for Risc16 {
     }
 
     fn step(&mut self) -> usize {
+        use enums::Opcode::*;
         if usize::from(self.program_counter.0) >= self.program.len() {
             return 0;
         }
@@ -94,7 +95,7 @@ impl Processor for Risc16 {
         self.program_counter += 1;
 
         // decode instruction
-        let opcode = inst >> 13;
+        let opcode = enums::Opcode::try_from(inst >> 13).unwrap();
         let ra = usize::from(inst >> 10 & 0b111);
         let rb = usize::from(inst >> 7 & 0b111);
         let rc = usize::from(inst & 0b111);
@@ -102,51 +103,44 @@ impl Processor for Risc16 {
         let imm = Wrapping((inst & 0x7f ^ 0x40).wrapping_sub(0x40));
         let addr = (self.registers[rb] + imm).0;
 
-        // if opcode == 0b001 || opcode == 0b100 || opcode == 0b101 || opcode == 0b110 {
-        //     println!("{}: {:#05b}, r{}, r{}, {}", self.pc.0 - 1, opcode, ra, rb, imm.0);
-        // } else {
-        //     println!("{}, {:#05b}, r{}, r{}, r{}", self.pc.0 - 1, opcode, ra, rb, rc);
-        // }
-
         match opcode {
             // add
-            0b000 => self.registers[ra] = self.registers[rb] + self.registers[rc],
+            Add => self.registers[ra] = self.registers[rb] + self.registers[rc],
             // add immediate
-            0b001 => self.registers[ra] = self.registers[rb] + imm,
+            Addi => self.registers[ra] = self.registers[rb] + imm,
             // bitwise nand
-            0b010 => self.registers[ra] = !(self.registers[rb] & self.registers[rc]),
+            Nand => self.registers[ra] = !(self.registers[rb] & self.registers[rc]),
             // load upper immediate
-            0b011 => self.registers[ra] = Wrapping(inst << 6),
+            Lui => self.registers[ra] = Wrapping(inst << 6),
             // port load
-            0b100 if rb == 0 => {
+            Ld if rb == 0 => {
                 let port = Port::try_from(usize::from(addr)).expect("invalid port");
                 self.registers[ra] = Wrapping(self.port_state.read_port(port));
             }
             // port store
-            0b101 if rb == 0 => {
+            St if rb == 0 => {
                 let port = Port::try_from(usize::from(addr)).expect("invalid port");
                 self.port_state.write_port(port, self.registers[ra].0);
             }
             // memory load
-            0b100 => {
+            Ld => {
                 self.registers[ra] = Wrapping(self.data[usize::from(addr)]);
             }
             // memory store
-            0b101 => {
+            St => {
                 self.data[usize::from(addr)] = self.registers[ra].0;
             }
             // branch if equal
-            0b110 => {
+            Beq => {
                 if self.registers[ra] == self.registers[rb] {
                     self.program_counter = self.program_counter + imm - Wrapping(1);
                 }
             }
             // jump and link register
-            0b111 => {
+            Jalr => {
                 self.registers[ra] = self.program_counter * Wrapping(2);
                 self.program_counter = self.registers[rb] / Wrapping(2);
             }
-            _ => unreachable!(),
         }
         self.registers[0] = Wrapping(0); // R0 is always 0
         usize::from(usize::from(self.program_counter.0) < self.program.len())
