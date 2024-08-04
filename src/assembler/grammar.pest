@@ -1,0 +1,40 @@
+WHITESPACE = _{ " " }
+
+comment = _{ ";" ~ (!NEWLINE ~ ANY)*}
+
+// c-style identifier
+identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+number = @{ "0b" ~ ASCII_BIN_DIGIT+ | "0x" ~ ASCII_HEX_DIGIT+ | ASCII_DIGIT+ }
+
+symbol = @{"."? ~ identifier}
+
+label = @{ symbol ~ ("::" ~ symbol)* }
+
+atom = _{ number | label | "(" ~ expression2 ~ ")" | "$" ~ identifier }
+unary = _{ ("+" | "-" | "!" | "~")? ~ atom }
+expression2 = _{ unary ~ (
+    (
+        "+" | "-" | "*" | "/" | "<<" | "<" | ">>" | ">" | "==" | "!=" | ">=" | "<=" |
+        "&&" | "||" | "%" | "&" | "|" | "^"
+    ) ~ unary)* }
+
+expression = {expression2}
+
+
+char = @{ !("\\" | "\"") ~ ASCII | "\\" ~ ("n"|"t"|"\\"|"0"|"\"") }
+
+string = ${ "\"" ~ char* ~ "\"" }
+character = ${ "'" ~ char ~ "'" }
+
+
+arg = _{ expression | character | string }
+arg_list = _{ arg ~ ("," ~ arg)* }
+
+directive = { "." ~ identifier ~ arg_list? }
+instruction = { label ~ arg_list? }
+
+label_declaration = ${ symbol ~ ":" ~ !":" }
+
+line = _{ label_declaration? ~ (directive | instruction)? ~ comment? ~ NEWLINE }
+
+lines = _{ SOI ~ line* ~ EOI }
