@@ -24,7 +24,7 @@ I have designed a few toy CPUs, and it is tedious to write an assembler and emul
 
 ## Example
 
-`[examples/risc16/main.rs](./examples/risc16/main.rs)` shows an example implementation for a simple 8 instruction, 16-bit, load-store CPU. It implements the following `Processor` trait:
+[examples/risc16/main.rs](examples/risc16/main.rs) shows an example implementation for a simple 8 instruction, 16-bit, load-store CPU. It implements the following `Processor` trait:
 
 ```rust
 fn new(program_counter: u64, program: Vec<u8>, data: Vec<u8>) -> Self;
