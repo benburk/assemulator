@@ -1,3 +1,5 @@
+.include "ports.asm"
+
 arr:      .i8 8, 6, 4, 10, 36, 23, 48, 12, 42, 5
 
 
@@ -38,4 +40,3 @@ next:   mov ramY,arr+1,  b
         inc x
         dec c
         bne outer
-

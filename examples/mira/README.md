@@ -2,7 +2,7 @@
 
 Mira is an 8-bit CPU architecture designed to have an efficient implementation in Minecraft completed in September 2021.
 
-# Instruction set
+## Instruction set
 
 The instruction set architecture (ISA) for the CPU takes inspiration from the 6502 and 8008 microprocessors. The CPU is accumulator-based and could be classified as CISC with its variable length instructions and ability to use memory directly as an argument. The feature-rich and orthogonal ISA makes it a joy to write programs for. It features:
 
@@ -242,13 +242,13 @@ next:   mov arr[y+1], b
         bne outer
 ```
 
-# Calling convention
+## Calling convention
 
-The calling convention isn't strict and can be defined by the user. My preference is for the stack to grow downward with post-decrement for push. Here's an example implementation of that
+The calling convention isn't strict and can be defined by the user. My preference is for the stack to grow downward with pre-decrement for push. Here's an example implementation of that
 
 ```asm
-- post-decrement stack for push
-- pre-increment for pop
+- pre-decrement stack for push
+- post-increment for pop
 - PC pushed first, then function args in reverse order
 
 

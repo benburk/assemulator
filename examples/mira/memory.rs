@@ -2,8 +2,6 @@ use std::num::Wrapping;
 
 use assemulator::{Port, State};
 
-
-
 #[derive(Default)]
 pub struct MemoryMappedRam {
     data: Vec<u8>,
@@ -38,4 +36,3 @@ impl From<&[u8]> for MemoryMappedRam {
         }
     }
 }
-

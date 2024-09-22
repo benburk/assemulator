@@ -86,6 +86,13 @@ fn branch(opcode: Opcode, imm: u64) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+fn jump_imm(imm: u64) -> Result<Vec<u8>, String> {
+    let mut bytes = vec![];
+    bytes.push(0b1111_0000);
+    bytes.push(mask::<u8>(imm, 8)?);
+    Ok(bytes)
+}
+
 fn compute_instruction_length(opcode: u8) -> u8 {
     let arg1 = opcode >> 3 & 0b111;
     let reg1 = Register::from(arg1);
@@ -201,7 +208,7 @@ impl Processor for Mira {
         }
     }
 
-    fn parse(
+    fn parse_assembly_line(
         _: u64,
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
@@ -233,6 +240,7 @@ impl Processor for Mira {
                 one_op_ram(opcode, a, b)
             }
 
+            (Jmp, &[Imm(a)]) => jump_imm(a),
             (opcode @ (Bcc | Bcs | Bne | Beq | Bpl | Bmi | Bvs | Bvc), &[Imm(a)]) => {
                 branch(opcode, a)
             }
