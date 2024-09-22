@@ -32,15 +32,15 @@ pub trait Processor: Default {
     ///
     /// # Arguments
     ///
+    /// * `address` - The address the instruction will be placed at
     /// * `opcode` - The opcode of the instruction
     /// * `arguments` - The arguments of the instruction
-    /// * `address` - The address the instruction will be placed at
     ///
     /// # Errors
     ///
     /// Returns an error message of why the instruction failed to be
     /// parsed.
-    fn parse(
+    fn parse_assembly_line(
         address: u64,
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],

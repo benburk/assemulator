@@ -88,7 +88,7 @@ impl<T: Processor> Assembler<T> {
                 }
             }
 
-            let bytes = T::parse(self.program.len() as u64, opcode, &arguments);
+            let bytes = T::parse_assembly_line(self.program.len() as u64, opcode, &arguments);
             let bytes = bytes.map_err(|err| format_error(pair, &err))?;
 
             self.program.extend(bytes);

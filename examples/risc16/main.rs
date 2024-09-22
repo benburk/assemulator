@@ -52,7 +52,7 @@ impl Processor for Risc16 {
         }
     }
 
-    fn parse(
+    fn parse_assembly_line(
         address: u64,
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
@@ -69,11 +69,11 @@ impl Processor for Risc16 {
             // load upper immediate
             (Lui, &[Reg(a), Imm(imm)]) => fmt3(0b011, a, imm)?,
             // port instructions
-            (Ld, &[Reg(a), Reg(b), Imm(c)]) if b.0 == 0 => fmt2(0b100, a, b, c)?,
-            (St, &[Reg(a), Reg(b), Imm(c)]) if b.0 == 0 => fmt2(0b101, a, b, c)?,
+            (Lw, &[Reg(a), Reg(b), Imm(c)]) if b.0 == 0 => fmt2(0b100, a, b, c)?,
+            (Sw, &[Reg(a), Reg(b), Imm(c)]) if b.0 == 0 => fmt2(0b101, a, b, c)?,
             // memory load and store
-            (Ld, &[Reg(a), Reg(b), Imm(c)]) => fmt2(0b100, a, b, c / 2)?,
-            (St, &[Reg(a), Reg(b), Imm(c)]) => fmt2(0b101, a, b, c / 2)?,
+            (Lw, &[Reg(a), Reg(b), Imm(c)]) => fmt2(0b100, a, b, c / 2)?,
+            (Sw, &[Reg(a), Reg(b), Imm(c)]) => fmt2(0b101, a, b, c / 2)?,
             (Beq, &[Reg(a), Reg(b), Imm(c)]) => {
                 fmt2(0b110, a, b, arith_shift_right(c.wrapping_sub(address)))?
             }
@@ -113,21 +113,21 @@ impl Processor for Risc16 {
             // load upper immediate
             Lui => self.registers[ra] = Wrapping(inst << 6),
             // port load
-            Ld if rb == 0 => {
+            Lw if rb == 0 => {
                 let port = Port::try_from(usize::from(addr)).expect("invalid port");
                 self.registers[ra] = Wrapping(self.port_state.read_port(port));
             }
             // port store
-            St if rb == 0 => {
+            Sw if rb == 0 => {
                 let port = Port::try_from(usize::from(addr)).expect("invalid port");
                 self.port_state.write_port(port, self.registers[ra].0);
             }
             // memory load
-            Ld => {
+            Lw => {
                 self.registers[ra] = Wrapping(self.data[usize::from(addr)]);
             }
             // memory store
-            St => {
+            Sw => {
                 self.data[usize::from(addr)] = self.registers[ra].0;
             }
             // branch if equal

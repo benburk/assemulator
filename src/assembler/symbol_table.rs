@@ -154,20 +154,20 @@ impl SymbolTable {
             .ok()?
             + 1;
 
-        let things_above = symbols[..start]
+        let local_labels_above = symbols[..start]
             .iter()
             .rev()
             .take_while(|&(key, _)| is_local_label(key))
             .find(|x| x.0.split('-').next().unwrap() == label)
             .map(|x| x.1);
 
-        let things_below = symbols[start..]
+        let local_labels_below = symbols[start..]
             .iter()
             .take_while(|&(key, _)| is_local_label(key))
             .find(|x| x.0.split('-').next().unwrap() == label)
             .map(|x| x.1);
 
-        let candidate = things_above.or(things_below);
+        let candidate = local_labels_above.or(local_labels_below);
 
         candidate
     }

@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn find_operator(&mut self) -> Option<(&'a str, usize)> {
+    fn find_operator(&self) -> Option<(&'a str, usize)> {
         OPERATORS
             .iter()
             .find_map(|(x, y)| self.expression[self.i..].starts_with(x).then_some((*x, *y)))

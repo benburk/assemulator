@@ -7,8 +7,8 @@ pub enum Opcode {
     Addi,
     Nand,
     Lui,
-    Ld,
-    St,
+    Lw,
+    Sw,
     Beq,
     Jalr,
 }
@@ -22,8 +22,8 @@ impl TryFrom<u16> for Opcode {
             0b001 => Self::Addi,
             0b010 => Self::Nand,
             0b011 => Self::Lui,
-            0b100 => Self::Ld,
-            0b101 => Self::St,
+            0b100 => Self::Lw,
+            0b101 => Self::Sw,
             0b110 => Self::Beq,
             0b111 => Self::Jalr,
             _ => {
