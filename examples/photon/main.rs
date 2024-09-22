@@ -35,8 +35,8 @@ impl Processor for Photon {
             ..Default::default()
         }
     }
-    fn parse(
-        address: u64,
+    fn parse_assembly_line(
+        _: u64,
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String> {
