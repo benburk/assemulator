@@ -165,3 +165,4 @@ counter:        .u16 0  ; initialize 16-bit counter to 0
         and a, 0x77
         and b, 0x77
         add a, b        ; a = a + b
+

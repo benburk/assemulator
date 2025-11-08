@@ -17,3 +17,4 @@ fib:    mov a, 1
 
 
 main:   jsr fib
+

@@ -111,3 +111,4 @@ loop:   pst a, xpos
         csb g, e        ; error -= dx
         add a, 1        ; x1 += 1
         btd c, loop
+

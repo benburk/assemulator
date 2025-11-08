@@ -11,3 +11,4 @@ start:  and r6, r2, r7  ; test lsb
         shr r2, r7 
         bt  r6, .doAdd  ; was B odd?
         bt  r2, .loop   ; loop while r2 != 0
+

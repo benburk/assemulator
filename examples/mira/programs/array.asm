@@ -22,3 +22,4 @@ loop:	dec x
         bcs loop
         jmp new
 end:
+

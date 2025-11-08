@@ -78,3 +78,4 @@ sprite_table:   .u16 0b0000_1010_0100_1010      ; x-piece
         swap a
         add a, 0x10
         swap a 
+

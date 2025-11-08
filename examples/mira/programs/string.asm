@@ -24,3 +24,4 @@ loop:   inc x
         beq end
         sub b
         bne loop
+

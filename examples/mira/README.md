@@ -14,7 +14,6 @@ The instruction set architecture (ISA) for the CPU takes inspiration from the 65
 - 8-bit address space (can use Harvard or Von-Neumann layout, and [bank switching](https://en.wikipedia.org/wiki/Bank_switching) to increase it)
 - Memory-mapped I/O
 
-
 ![ISA](/images/mira-isa.png)
 
 This is the canonical bit-encoding for the ISA. An implementation is free to shift instructions and bits around to decode it more efficiently, as was done for Minecraft. An implementation is considered valid as long as any assembly program can be executed on it.
@@ -65,7 +64,6 @@ It also incorporates techniques to reduce the number of updates it causes during
 - Minimal redstone to reduce game updates
 - Control lines are decoded directly instead of using a [PLA](https://en.wikipedia.org/wiki/Programmable_logic_array)
 - Pre-powered bussing lines
-
 
 # ISA rationale
 
@@ -276,7 +274,6 @@ my_func:
     mov [stack], 3
     dec stack
     jmp my_func         ; call
-
 ```
 
 # Future plans

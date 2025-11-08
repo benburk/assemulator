@@ -53,6 +53,7 @@ aaa  11110  bbb  kkkkk  adi     add immediate               a = b + k
 ```
 
 Notes:
+
 - `i` bit denotes whether to use immediate. Uses the 3 proceeding bits as instruction selector
 - `m` bits denote modifiers for different instruction types (for arith and shifting: include x / write out x), (for branching: whether to use register)
 
@@ -80,30 +81,26 @@ main:   mov b, 3
 
 Run the program with `cargo run --release -- ./programs/math/multiplication.asm run` and `45` should be printed to stdout. Check out the programs folder for more examples.
 
-
-
-
 ## Rationale
 
 Why one flag instead of multple?
+
 - Fewer branch instructions
 - More orthogonal
 - More-straight forward conditional instructions
 
 Why btd?
+
 - A few architectures had djnz (8051, z80). I instead test if the value is zero first.
 - check condition at the end
 
-
 Instructions that could be nice to add
+
 - conditional negate
 - 3 operand add, sub, logic ops to save some moves
-        - this would complicate decoding a decent amount, probably not worth
-
-
+  - this would complicate decoding a decent amount, probably not worth
 
 ## Conditional instructions
 
 - Conditional move and arithmetic to remove unpredictable branches
 - taken branches usually take an extra cycle anyways, so this is a faster way to "skip over" code
-

@@ -9,7 +9,6 @@
 - Easy to map on to other ISAs
 - Easy to pipeline / out-of-order
 
-
 ## Instruction set
 
 ```
