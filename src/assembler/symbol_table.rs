@@ -68,22 +68,21 @@ impl SymbolTable {
         };
         Some(address)
     }
-    pub fn new_pass(&mut self) {
+    pub const fn new_pass(&mut self) {
         self.label_index = 0;
     }
 
     fn resolve_label(&self, label: &str) -> String {
-        match &self.label_prefix {
-            Some(prefix) => format!("{prefix}::{label}"),
-            None => label.to_string(),
-        }
+        self.label_prefix
+            .as_ref()
+            .map_or_else(|| label.to_string(), |prefix| format!("{prefix}::{label}"))
     }
 
     fn add_entry(&mut self, label: &Token, value: LabelEntry) -> Result<(), String> {
         let mut label_str = self.resolve_label(label.as_str());
 
         if is_local_label(&label_str) {
-            label_str.push_str(&format!("-{}", self.label_index));
+            label_str = format!("{label_str}-{}", self.label_index);
         } else if let Some(entry) = self.symbols.get(&label_str) {
             if entry.idx != self.label_index {
                 return Err(format_error(label, "label already defined"));
@@ -167,9 +166,7 @@ impl SymbolTable {
             .find(|x| x.0.split('-').next().unwrap() == label)
             .map(|x| x.1);
 
-        let candidate = local_labels_above.or(local_labels_below);
-
-        candidate
+        local_labels_above.or(local_labels_below)
     }
 
     fn get_label(&self, label: &Token) -> Result<u64, String> {
@@ -191,7 +188,7 @@ impl SymbolTable {
     }
 
     /// Returns 0 if a label is not defined.
-    pub fn expression<U>(&mut self, arg: &Token) -> Result<U, String>
+    pub fn expression<U>(&self, arg: &Token) -> Result<U, String>
     where
         U: TryFrom<u64> + Copy,
     {

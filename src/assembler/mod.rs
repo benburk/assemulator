@@ -213,7 +213,7 @@ impl<T: Processor> Assembler<T> {
         self.symbol_table.declare_macro(label, template)
     }
 
-    fn expression<U>(&mut self, arg: &Token) -> Result<U, String>
+    fn expression<U>(&self, arg: &Token) -> Result<U, String>
     where
         U: TryFrom<u64> + Copy + Default,
     {

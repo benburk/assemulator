@@ -7,7 +7,7 @@ pub struct Template {
 }
 
 impl Template {
-    pub fn new(args: Vec<String>, body: String) -> Self {
+    pub const fn new(args: Vec<String>, body: String) -> Self {
         Self { args, body }
     }
 

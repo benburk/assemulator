@@ -8,7 +8,7 @@ use assemulator::{mask, run, Argument, Processor};
 use enums::{Opcode, Register};
 
 fn is_reg_ram(reg: Register) -> bool {
-    return matches!(reg, Register::RamK | Register::RamX | Register::RamY);
+    matches!(reg, Register::RamK | Register::RamX | Register::RamY)
 }
 
 fn two_op_no_imm(opcode: Opcode, mode: Register) -> Result<Vec<u8>, String> {
@@ -37,60 +37,52 @@ fn move_reg_reg(dest: Register, src: Register) -> Result<Vec<u8>, String> {
 
 fn move_reg_imm(dest: Register, imm: u64) -> Result<Vec<u8>, String> {
     // move immediate is encoded by having arg1 and arg2 the same
-    let mut bytes = vec![];
-    bytes.push(0b1000_0000 | u8::from(dest) << 3 | u8::from(dest));
-    bytes.push(mask::<u8>(imm, 8)?);
-    Ok(bytes)
+    Ok(vec![
+        0b1000_0000 | u8::from(dest) << 3 | u8::from(dest),
+        mask::<u8>(imm, 8)?,
+    ])
 }
 
 fn load(dest: Register, src: Register, imm: u64) -> Result<Vec<u8>, String> {
-    let mut bytes = vec![];
-    bytes.push(0b1000_0000 | u8::from(dest) << 3 | u8::from(src));
-    bytes.push(mask::<u8>(imm, 8)?);
-    Ok(bytes)
+    Ok(vec![
+        0b1000_0000 | u8::from(dest) << 3 | u8::from(src),
+        mask::<u8>(imm, 8)?,
+    ])
 }
 
 fn store(dest: Register, imm: u64, src: Register) -> Result<Vec<u8>, String> {
-    let mut bytes = vec![];
-    bytes.push(0b1000_0000 | u8::from(dest) << 3 | u8::from(src));
-    bytes.push(mask::<u8>(imm, 8)?);
-    Ok(bytes)
+    Ok(vec![
+        0b1000_0000 | u8::from(dest) << 3 | u8::from(src),
+        mask::<u8>(imm, 8)?,
+    ])
 }
 
 fn store_const(imm: u64, src: Register) -> Result<Vec<u8>, String> {
-    let mut bytes = vec![];
-    bytes.push(0b1000_0000 | u8::from(Register::RamK) << 3 | u8::from(src));
-    bytes.push(mask::<u8>(imm, 8)?);
-    Ok(bytes)
+    Ok(vec![
+        0b1000_0000 | u8::from(Register::RamK) << 3 | u8::from(src),
+        mask::<u8>(imm, 8)?,
+    ])
 }
 
 fn one_op_reg(opcode: Opcode, reg: Register) -> Result<Vec<u8>, String> {
     // implemented as sub immediate for convenience
-    let mut bytes = vec![];
-    bytes.push(0b1100_0000 | u8::from(opcode) << 3 | u8::from(reg));
-    Ok(bytes)
+    Ok(vec![0b1100_0000 | u8::from(opcode) << 3 | u8::from(reg)])
 }
 
 fn one_op_ram(opcode: Opcode, reg: Register, imm: u64) -> Result<Vec<u8>, String> {
     // implemented as sub immediate for convenience
-    let mut bytes = vec![];
-    bytes.push(0b1100_0000 | u8::from(opcode) << 3 | u8::from(reg));
-    bytes.push(mask::<u8>(imm, 8)?);
-    Ok(bytes)
+    Ok(vec![
+        0b1100_0000 | u8::from(opcode) << 3 | u8::from(reg),
+        mask::<u8>(imm, 8)?,
+    ])
 }
 
 fn branch(opcode: Opcode, imm: u64) -> Result<Vec<u8>, String> {
-    let mut bytes = vec![];
-    bytes.push(0b1111_1000 | u8::from(opcode));
-    bytes.push(mask::<u8>(imm, 8)?);
-    Ok(bytes)
+    Ok(vec![0b1111_1000 | u8::from(opcode), mask::<u8>(imm, 8)?])
 }
 
 fn jump_imm(imm: u64) -> Result<Vec<u8>, String> {
-    let mut bytes = vec![];
-    bytes.push(0b1111_0000);
-    bytes.push(mask::<u8>(imm, 8)?);
-    Ok(bytes)
+    Ok(vec![0b1111_0000, mask::<u8>(imm, 8)?])
 }
 
 fn compute_instruction_length(opcode: u8) -> u8 {

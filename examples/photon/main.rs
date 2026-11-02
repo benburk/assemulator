@@ -143,28 +143,28 @@ impl Processor for Photon {
 
         if inst.wrapping_shr(8) & 0b11111 == 0 {
             match inst & 0b11111 {
-                0x00 => self.regs[ra] = self.regs[ra] & self.regs[rb],
-                0x01 => self.regs[ra] = self.regs[ra] | self.regs[rb],
-                0x02 => self.regs[ra] = self.regs[ra] ^ self.regs[rb],
+                0x00 => self.regs[ra] &= self.regs[rb],
+                0x01 => self.regs[ra] |= self.regs[rb],
+                0x02 => self.regs[ra] ^= self.regs[rb],
                 0x03 => self.regs[ra] = self.regs[rb],
                 0x04 => self.x = self.regs[ra] & self.regs[rb] != Wrapping(0),
                 0x05 => self.x = self.regs[ra] == self.regs[rb],
                 0x06 => self.x = self.regs[ra] >= self.regs[rb],
                 0x07 => self.x = (self.regs[ra].0 as i8) >= (self.regs[rb].0 as i8),
-                0x08 => self.regs[ra] = self.regs[ra] + self.regs[rb],
+                0x08 => self.regs[ra] += self.regs[rb],
                 0x09 => self.regs[ra] = self.regs[ra] + self.regs[rb] + Wrapping(u8::from(self.x)),
                 0x0a => {
-                    self.regs[ra] = self.regs[ra] + self.regs[rb];
+                    self.regs[ra] += self.regs[rb];
                     self.x = self.regs[ra] < self.regs[rb];
                 }
                 0x0b => {
                     self.regs[ra] = self.regs[ra] + self.regs[rb] + Wrapping(u8::from(self.x));
                     self.x = self.regs[ra] < self.regs[rb];
                 }
-                0x0c => self.regs[ra] = self.regs[ra] - self.regs[rb],
+                0x0c => self.regs[ra] -= self.regs[rb],
                 0x0d => self.regs[ra] = self.regs[ra] - self.regs[rb] + Wrapping(u8::from(self.x)),
                 0x0e => {
-                    self.regs[ra] = self.regs[ra] - self.regs[rb];
+                    self.regs[ra] -= self.regs[rb];
                     self.x = self.regs[ra] > self.regs[rb];
                 }
                 0x0f => {
@@ -222,13 +222,13 @@ impl Processor for Photon {
                 // cad
                 0x1a => {
                     if self.x {
-                        self.regs[ra] = self.regs[ra] + self.regs[rb];
+                        self.regs[ra] += self.regs[rb];
                     }
                 }
                 // csb
                 0x1b => {
                     if self.x {
-                        self.regs[ra] = self.regs[ra] - self.regs[rb];
+                        self.regs[ra] -= self.regs[rb];
                     }
                 }
                 0x1c => self.regs[ra] = -self.regs[rb],
