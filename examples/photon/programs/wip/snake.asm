@@ -8,7 +8,7 @@ KEY_LEFT:       .set 4
 KEY_RIGHT:      .set 8
 
 ; stores the keys pressed so we can undo movements
-queue:          .fill 64, 0
+queue:          .zero 64
 ; pointer to front of queue
 front:          .u8 0
 back:           .u8 0
@@ -23,13 +23,13 @@ head_y:         .u8 0
         pld e, buttonsp
 
         ; write latest input
-        ld a, front
+        ld a, [front]
         psh e, a
 
         tst e, KEY_UP
         bt handle_key_up
 
-        ld a, back
+        ld a, [back]
 
 
 

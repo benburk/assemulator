@@ -3,7 +3,7 @@
         ; the height of each position
         ; 0 means empty
         ; 1, 2, 3, 4, 5, 6
-height: .fill 0, 7
+height: .zero 7
 
 
 
@@ -11,7 +11,7 @@ height: .fill 0, 7
         ; a: column to draw piece
 draw_x: 
 
-        ld b, a, height         ; get height for that column
+        ld b, [height+a]         ; get height for that column
 
         ; check if column is full
         eq b, 6
@@ -26,12 +26,12 @@ end:    ret
 
 
         ; connect four board is 6x7
-board:  .fill 0, 7
-        .fill 0, 7
-        .fill 0, 7
-        .fill 0, 7
-        .fill 0, 7
-        .fill 0, 7
+board:  .zero 7
+        .zero 7
+        .zero 7
+        .zero 7
+        .zero 7
+        .zero 7
 
 
 
@@ -46,7 +46,7 @@ board:  .fill 0, 7
 getmove:
 
         pld a, u8       ; get player move as column index
-        ld b, a, height ; get height for that column
+        ld b, [height+a] ; get height for that column
         eq b, 6         ; check if column is full
         bt getmove      ; yes? -> illegal move
         ret

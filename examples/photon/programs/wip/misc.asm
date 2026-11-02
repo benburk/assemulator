@@ -50,14 +50,15 @@
 ; out e: hundreds
 ; out f: tens
 ; out a: ones
--:      sub a, 100
+.hundreds:
+        sub a, 100
         add e, 1
         geq a, 100
-        bt -
--:      sub a, 10
+        bt .hundreds
+.tens:  sub a, 10
         add f, 1
         geq a, 10
-        bt -
+        bt .tens
         
 
 
@@ -105,10 +106,10 @@
         sta temp
         shl a
         eor temp
-        and a, b10101010
-        add a, b01100110
-        and a, b10001000
-        addx a, b01111000
+        and a, 0b10101010
+        add a, 0b01100110
+        and a, 0b10001000
+        addx a, 0b01111000
         ; now the parity is in the sign bit
 
 
@@ -148,12 +149,12 @@
 counter:        .u16 0  ; initialize 16-bit counter to 0
 
         mov b, 1
-        ld a, counter[0]
+        ld a, [counter]
         addx a, b
-        st a, counter[0]
-        ld a, counter[1]
+        st a, [counter]
+        ld a, [counter+1]
         addc a, c       ; c = 0
-        st a, counter[1]
+        st a, [counter+1]
 
 
 

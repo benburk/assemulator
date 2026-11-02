@@ -1,9 +1,9 @@
 ; swap the nibbles of A
 shl a
-adc 0x80
+adc a, 0x80
 rol a
 shl a
-adc 0x80
+adc a, 0x80
 rol a
 
 
@@ -16,9 +16,9 @@ and b
 
 
 ; Toggle carry flag while preserving A
-rol A
-xor 1
-ror A
+rol a
+xor a, 1
+ror a
 
 
 ; increment lower 4 bits of A
@@ -26,60 +26,60 @@ mov b, a    ; save a in b to restore upper nibble later
 inc a       ; increment lower 4 bits
 and b, 0xf0 ; mask upper bits of b
 and a, 0x0f ; mask lower bits of a
-ior a, b
+ior b
 
 
 
 ; Copy bit 7 of a value to all of A
 ; a=0 if positive, -1 if negative
 mov a, 0x7F
-cmp value  # Carry clear if >= $80
-adc 0x80   # 0x00 if carry set; 0xff if carry clear
+cmp [value]    ; carry clear if >= 0x80
+adc a, 0x80    ; 0x00 if carry set; 0xff if carry clear
 
 
 
 ; Cookie-cutter
 ; write bits 3-5 of a to memory
-xor dest
-and 0x38; bits 3-5
-xor dest
-mov dest, a
+xor [dest]
+and a, 0x38 ; bits 3-5
+xor [dest]
+mov [dest], a
 
 
 ; read bits 3-5 of memory into A
 ; A must be 0
-eor src
-and #$C7 ; not bits 3-5
-eor src
+xor [src]
+and a, 0xc7 ; not bits 3-5
+xor [src]
 
 
 
 ; arithmetic shift right
-        cmp 0x80
-        ror
+        cmp a, 0x80
+        ror a
         
 
 ; arithmetic shift right 4 bits at once
-        shr
-        shr
-        shr
-        shr
-        add 0xf8
-        xor 0xf8
+        shr a
+        shr a
+        shr a
+        shr a
+        add a, 0xf8
+        xor a, 0xf8
 
 
 ; Average of two numbers (2 bytes)
 ; inputs: A, B
 ; result: A
 add b
-ror
+ror a
 
 
 ; Absolute value
 ; input: A, with N correctly set
 ; result: A
-    bnc abs
-    xor 0xff
+    bcc abs
+    xor a, 0xff
     inc a
 abs:
 
