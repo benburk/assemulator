@@ -2,6 +2,7 @@
 mod assembler;
 mod get_input;
 mod mask;
+mod parse_int;
 mod port;
 mod processor;
 mod register;
@@ -33,8 +34,8 @@ enum Action {
     Assemble,
     /// Run the program
     Run {
-        /// Debug
-        #[clap(long, default_value = "false")]
+        /// Print the processor state and wait for enter after each step
+        #[arg(long)]
         debug: bool,
     },
 }

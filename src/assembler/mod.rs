@@ -128,11 +128,11 @@ impl<T: Processor> Assembler<T> {
                 self.declare_macro(label, template)?;
             }
             "set" => {
-                let arg = tokens.next().unwrap();
-                let value = self.symbol_table.expression::<u64>(&arg);
-                if let Ok(value) = value {
-                    self.symbol_table.declare_value(label, value)?;
-                }
+                let arg = tokens
+                    .next()
+                    .ok_or_else(|| format_error(&command, "Expected expression"))?;
+                let value = self.expression::<u64>(&arg)?;
+                self.symbol_table.declare_value(label, value)?;
             }
             "i8" => {
                 self.declare_data_label(label)?;
@@ -164,8 +164,13 @@ impl<T: Processor> Assembler<T> {
             }
             "endif" => {}
             "include" => {
-                let filename = tokens.next().expect("Filename").as_str();
-                let filename = path.parent().unwrap().join(filename);
+                let filename = tokens
+                    .next()
+                    .ok_or_else(|| format_error(&command, "Expected filename"))?;
+                let filename = path
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .join(filename.as_str());
 
                 if self.included_files.contains(&filename) && label.is_none() {
                     return Ok(());
@@ -177,7 +182,9 @@ impl<T: Processor> Assembler<T> {
                 self.symbol_table.done_with_file(old_prefix);
             }
             "zero" => {
-                let arg = tokens.next().unwrap();
+                let arg = tokens
+                    .next()
+                    .ok_or_else(|| format_error(&command, "Expected count"))?;
                 let count = self.expression::<usize>(&arg)?;
                 if count > 256 {
                     Err(format_error(&arg, "bad count"))?;

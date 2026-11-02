@@ -149,7 +149,7 @@ impl SymbolTable {
         symbols.sort_by_key(|&(_, v)| v.idx);
 
         let start = symbols
-            .binary_search_by_key(&(self.label_index - 1), |x| x.1.idx)
+            .binary_search_by_key(&self.label_index.checked_sub(1)?, |x| x.1.idx)
             .ok()?
             + 1;
 
@@ -187,36 +187,46 @@ impl SymbolTable {
         }
     }
 
-    /// Returns 0 if a label is not defined.
+    /// Evaluates an expression argument, substituting labels and characters
+    /// with their values.
+    ///
+    /// Returns an error if a label is undefined or the value doesn't fit in `U`.
     pub fn expression<U>(&self, arg: &Token) -> Result<U, String>
     where
         U: TryFrom<u64> + Copy,
     {
-        let mut full_expr = arg.as_str().to_string();
+        let text = arg.as_str();
+        let offset = arg.as_span().start();
+        let mut full_expr = String::new();
+        let mut last = 0;
         for symbol in arg.clone().into_inner() {
-            let tk = symbol.as_str();
+            let (start, end) = (
+                symbol.as_span().start() - offset,
+                symbol.as_span().end() - offset,
+            );
 
-            match symbol.as_rule() {
-                Rule::label => {
-                    let value = self.get_label(&symbol)?;
-                    full_expr = full_expr.replace(tk, &value.to_string());
-                }
+            let (start, end, value) = match symbol.as_rule() {
+                Rule::label => (start, end, self.get_label(&symbol)?),
                 Rule::char => {
-                    let c = interpret_escaped_chars(tk);
-                    let value = u64::from(c.chars().next().unwrap());
-                    let value_as_str = value.to_string();
-                    full_expr = full_expr.replace(&format!("'{tk}'"), &value_as_str);
+                    let c = interpret_escaped_chars(symbol.as_str());
+                    let value = u64::from(c.chars().next().unwrap_or_default());
+                    // also replace the surrounding quotes
+                    (start - 1, end + 1, value)
                 }
-                Rule::number => {}
-                x => {
-                    panic!("unexpeted token: {x:?}");
+                Rule::number => continue,
+                Rule::string => {
+                    return Err(format_error(&symbol, "expected a number, not a string"))
                 }
-            }
+                _ => return Err(format_error(&symbol, "unexpected token")),
+            };
+            full_expr.push_str(&text[last..start]);
+            full_expr.push_str(&value.to_string());
+            last = end;
         }
+        full_expr.push_str(&text[last..]);
+        full_expr.retain(|c| c != ' ');
 
-        full_expr = full_expr.replace(' ', "");
-
-        let value = expression::parse(&full_expr).unwrap();
+        let value = expression::parse(&full_expr).map_err(|err| format_error(arg, &err))?;
         let n_bits = 8 * std::mem::size_of::<U>();
         mask(value, n_bits).map_err(|err| format_error(arg, &err))
     }

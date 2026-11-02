@@ -1,31 +1,4 @@
-/// Parses a string representing an integer.
-/// Works similarly to int(x, 0) in Python.
-///
-/// Doesn't support negative values.
-///
-/// # Examples
-///
-/// ```rust
-/// use assemulator::parse_int;
-/// assert_eq!(parse_int("0x10"), Ok(16));
-/// assert_eq!(parse_int("0b1010"), Ok(10));
-/// assert_eq!(parse_int("0o10"), Ok(8));
-/// assert_eq!(parse_int("10"), Ok(10));
-/// ```
-#[allow(clippy::option_if_let_else)]
-fn parse_int(text: &str) -> Result<u64, String> {
-    let value = if let Some(x) = text.strip_prefix("0x") {
-        u64::from_str_radix(x, 16).ok()
-    } else if let Some(x) = text.strip_prefix("0b") {
-        u64::from_str_radix(x, 2).ok()
-    } else if let Some(x) = text.strip_prefix("0o") {
-        u64::from_str_radix(x, 8).ok()
-    } else {
-        text.parse().ok()
-    };
-
-    value.ok_or_else(|| format!("Invalid integer: {text}"))
-}
+use crate::parse_int::parse_int;
 
 // these should be sorted by length for maximal munch
 const OPERATORS: [(&str, usize); 18] = [
@@ -49,10 +22,14 @@ const OPERATORS: [(&str, usize); 18] = [
     ("%", 20),
 ];
 
-/// Assumes input is a correctly formed math expression.
+/// Evaluates a math expression. Whitespace must already be stripped.
 pub fn parse(expression: &str) -> Result<u64, String> {
     let mut parser = Parser::new(expression);
-    parser.parse_expression(0)
+    let value = parser.parse_expression(0)?;
+    if parser.i < expression.len() {
+        return Err(format!("Unexpected input: {}", &expression[parser.i..]));
+    }
+    Ok(value)
 }
 
 struct Parser<'a> {
@@ -75,16 +52,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn accept_number(&mut self) -> Option<u64> {
-        if self.expression[self.i..].starts_with(char::is_numeric) {
+    fn accept_number(&mut self) -> Option<Result<u64, String>> {
+        if self.expression[self.i..].starts_with(|c: char| c.is_ascii_digit()) {
             let start = self.i;
-            while self.expression[self.i..].starts_with(char::is_alphanumeric)
+            while self.expression[self.i..].starts_with(|c: char| c.is_ascii_alphanumeric())
                 || self.expression[self.i..].starts_with('_')
             {
                 self.i += 1;
             }
-            let num = &self.expression[start..self.i];
-            Some(parse_int(num).unwrap())
+            Some(parse_int(&self.expression[start..self.i]))
         } else {
             None
         }
@@ -118,8 +94,8 @@ impl<'a> Parser<'a> {
                 "+" => left.wrapping_add(right),
                 "-" => left.wrapping_sub(right),
                 "*" => left.wrapping_mul(right),
-                "/" => left.wrapping_div(right),
-                "%" => left.wrapping_rem(right),
+                "/" => left.checked_div(right).ok_or("Division by zero")?,
+                "%" => left.checked_rem(right).ok_or("Division by zero")?,
                 "&" => left & right,
                 "|" => left | right,
                 "^" => left ^ right,
@@ -133,7 +109,7 @@ impl<'a> Parser<'a> {
                 "!=" => u64::from(left != right),
                 "&&" => u64::from(left != 0 && right != 0),
                 "||" => u64::from(left != 0 || right != 0),
-                _ => panic!(),
+                _ => unreachable!("operator missing from OPERATORS: {op}"),
             };
         }
         Ok(left)
@@ -151,7 +127,7 @@ impl<'a> Parser<'a> {
         } else if self.accept("!") {
             self.parse_factor().map(|x| u64::from(x == 0))
         } else if let Some(number) = self.accept_number() {
-            Ok(number)
+            number
         } else if self.i >= self.expression.len() {
             Err("Unexpected end of input".to_string())
         } else {
@@ -160,5 +136,40 @@ impl<'a> Parser<'a> {
                 &self.expression[self.i..]
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse;
+
+    #[test]
+    fn respects_precedence() {
+        assert_eq!(parse("1+2*3"), Ok(7));
+        assert_eq!(parse("(1+2)*3"), Ok(9));
+        assert_eq!(parse("1<<2+1"), Ok(8));
+        assert_eq!(parse("10-4-3"), Ok(3));
+    }
+
+    #[test]
+    fn evaluates_comparisons() {
+        assert_eq!(parse("2<=2"), Ok(1));
+        assert_eq!(parse("3>=4"), Ok(0));
+        assert_eq!(parse("1<2&&2!=3"), Ok(1));
+    }
+
+    #[test]
+    fn evaluates_unary_operators() {
+        assert_eq!(parse("-1"), Ok(u64::MAX));
+        assert_eq!(parse("~0"), Ok(u64::MAX));
+        assert_eq!(parse("!5"), Ok(0));
+    }
+
+    #[test]
+    fn reports_errors() {
+        assert!(parse("1/0").is_err());
+        assert!(parse("1%0").is_err());
+        assert!(parse("(1").is_err());
+        assert!(parse("1)").is_err());
     }
 }
