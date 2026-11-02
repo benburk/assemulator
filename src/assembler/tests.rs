@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use strum_macros::EnumString;
 
 use super::{Assembler, AssemblyResult};
-use crate::{mask, Argument, Endian, Processor, Register};
+use crate::{mask, Argument, Endian, InstructionSet, Register};
 
 #[derive(Debug, Clone, Copy, EnumString)]
 #[strum(serialize_all = "lowercase")]
@@ -13,11 +13,10 @@ enum Opcode {
     Load,
 }
 
-/// Minimal processor with one-byte instructions.
-#[derive(Default)]
+/// Minimal instruction set with one-byte instructions.
 struct Test<const BIG_ENDIAN: bool>;
 
-impl<const BIG_ENDIAN: bool> Processor for Test<BIG_ENDIAN> {
+impl<const BIG_ENDIAN: bool> InstructionSet for Test<BIG_ENDIAN> {
     type Opcode = Opcode;
     type Register = Register<4>;
 
@@ -27,11 +26,7 @@ impl<const BIG_ENDIAN: bool> Processor for Test<BIG_ENDIAN> {
         Endian::Little
     };
 
-    fn new(_: u64, _: Vec<u8>, _: Vec<u8>) -> Self {
-        Self
-    }
-
-    fn parse_assembly_line(
+    fn encode(
         _: u64,
         opcode: Opcode,
         arguments: &[Argument<Self::Register>],
@@ -46,10 +41,6 @@ impl<const BIG_ENDIAN: bool> Processor for Test<BIG_ENDIAN> {
             }
             _ => Err("invalid instruction".to_owned()),
         }
-    }
-
-    fn step(&mut self) -> usize {
-        0
     }
 }
 

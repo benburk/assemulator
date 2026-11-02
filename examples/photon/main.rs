@@ -1,5 +1,5 @@
 mod enums;
-use assemulator::{mask, run, Argument, Port, Processor, State};
+use assemulator::{mask, run, Argument, InstructionSet, Port, Processor, State, Step};
 use std::num::Wrapping;
 type Word = u8;
 
@@ -13,29 +13,28 @@ pub struct Photon {
     port_state: State<u8>,
 }
 
-impl Processor for Photon {
+impl Photon {
+    fn load(&self, addr: Wrapping<Word>) -> Result<Wrapping<Word>, String> {
+        let value = self.data.get(usize::from(addr.0));
+        Ok(Wrapping(*value.ok_or_else(|| invalid_address(addr))?))
+    }
+
+    fn store(&mut self, addr: Wrapping<Word>, value: Wrapping<Word>) -> Result<(), String> {
+        let slot = self.data.get_mut(usize::from(addr.0));
+        *slot.ok_or_else(|| invalid_address(addr))? = value.0;
+        Ok(())
+    }
+}
+
+fn invalid_address(addr: Wrapping<Word>) -> String {
+    format!("invalid data address {:#x}", addr.0)
+}
+
+impl InstructionSet for Photon {
     type Opcode = enums::Opcode;
     type Register = enums::Register;
 
-    fn debug(&self) {
-        println!(
-            "pc: {:02x}, regs: {:?}, x: {}, data: {:?}",
-            self.pc.0, self.regs, self.x, self.data
-        );
-    }
-
-    fn new(addr: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
-        Self {
-            pc: Wrapping((addr / 2) as Word),
-            program: program
-                .chunks_exact(2)
-                .map(|x| u16::from_be_bytes([x[0], x[1]]))
-                .collect(),
-            data,
-            ..Default::default()
-        }
-    }
-    fn parse_assembly_line(
+    fn encode(
         _: u64,
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
@@ -135,10 +134,30 @@ impl Processor for Photon {
         };
         Ok(inst.to_be_bytes().to_vec())
     }
+}
 
-    fn step(&mut self) -> usize {
+impl Processor for Photon {
+    fn debug(&self) {
+        println!(
+            "pc: {:02x}, regs: {:?}, x: {}, data: {:?}",
+            self.pc.0, self.regs, self.x, self.data
+        );
+    }
+
+    fn new(addr: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
+        Self {
+            pc: Wrapping((addr / 2) as Word),
+            program: program
+                .chunks_exact(2)
+                .map(|x| u16::from_be_bytes([x[0], x[1]]))
+                .collect(),
+            data,
+            ..Default::default()
+        }
+    }
+    fn step(&mut self) -> Result<Step, String> {
         let Some(&inst) = self.program.get(usize::from(self.pc.0)) else {
-            return 0;
+            return Ok(Step::Halt);
         };
         self.pc += 1;
 
@@ -250,11 +269,11 @@ impl Processor for Photon {
                 // push
                 0x1e => {
                     self.regs[rb] -= Wrapping(1);
-                    self.data[usize::from(self.regs[rb].0)] = self.regs[ra].0;
+                    self.store(self.regs[rb], self.regs[ra])?;
                 }
                 // pop
                 0x1f => {
-                    self.regs[ra] = Wrapping(self.data[usize::from(self.regs[rb].0)]);
+                    self.regs[ra] = self.load(self.regs[rb])?;
                     self.regs[rb] += Wrapping(1);
                 }
                 _ => unreachable!(),
@@ -318,48 +337,34 @@ impl Processor for Photon {
                     }
                 }
                 // load direct
-                0b11000 => {
-                    self.regs[ra] = Wrapping(self.data[usize::from(imm.0)]);
-                }
+                0b11000 => self.regs[ra] = self.load(imm)?,
                 // store direct
-                0b11001 => {
-                    self.data[usize::from(imm.0)] = self.regs[ra].0;
-                }
+                0b11001 => self.store(imm, self.regs[ra])?,
                 // port load
-                0b11010 => match Port::try_from(usize::from(imm.0)) {
-                    Ok(port) => {
-                        self.regs[ra] = Wrapping(self.port_state.read_port(port));
-                    }
-                    Err(_) => panic!("invalid port address: {}", imm.0),
-                },
+                0b11010 => {
+                    let port = Port::try_from(usize::from(imm.0))?;
+                    self.regs[ra] = Wrapping(self.port_state.read_port(port));
+                }
                 // port store
-                0b11011 => match Port::try_from(usize::from(imm.0)) {
-                    Ok(port) => {
-                        self.port_state.write_port(port, self.regs[ra].0);
-                    }
-                    Err(_) => panic!("invalid port address: {}", imm.0),
-                },
+                0b11011 => {
+                    let port = Port::try_from(usize::from(imm.0))?;
+                    self.port_state.write_port(port, self.regs[ra].0)?;
+                }
                 // load offset
-                0b11100 => {
-                    self.regs[ra] = Wrapping(self.data[usize::from((self.regs[rb] + imm).0)]);
-                }
+                0b11100 => self.regs[ra] = self.load(self.regs[rb] + imm)?,
                 // store offset
-                0b11101 => {
-                    self.data[usize::from((self.regs[rb] + imm).0)] = self.regs[ra].0;
-                }
+                0b11101 => self.store(self.regs[rb] + imm, self.regs[ra])?,
                 // add imm
                 0b11110 => {
                     self.regs[ra] = self.regs[rb] + imm;
                 }
                 // halt
-                0b11111 => {
-                    return 0;
-                }
-                _ => unreachable!(),
+                0b11111 => return Ok(Step::Halt),
+                _ => return Err(format!("invalid instruction {inst:#06x}")),
             }
         }
 
-        usize::from(usize::from(self.pc.0) < self.program.len())
+        Ok(Step::Continue)
     }
 }
 

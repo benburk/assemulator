@@ -1,6 +1,6 @@
 use std::num::Wrapping;
 
-use assemulator::{mask, run, Argument, Port, Processor, State};
+use assemulator::{mask, run, Argument, InstructionSet, Port, Processor, State, Step};
 
 mod enums;
 
@@ -18,6 +18,10 @@ fn convert_u8_to_u16(data: Vec<u8>) -> Vec<u16> {
     data.chunks_exact(2)
         .map(|x| u16::from_be_bytes([x[0], x[1]]))
         .collect()
+}
+
+fn invalid_address(addr: Word) -> String {
+    format!("invalid data address {addr:#x}")
 }
 
 fn fmt1(op: u16, a: Register, b: Register, c: Register) -> u16 {
@@ -41,21 +45,11 @@ struct Risc16 {
     port_state: State<u16>,
 }
 
-impl Processor for Risc16 {
+impl InstructionSet for Risc16 {
     type Opcode = enums::Opcode;
     type Register = Register;
 
-    fn new(program_counter: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
-        let program_counter = Word::try_from(program_counter / 2).unwrap();
-        Risc16 {
-            program_counter: Wrapping(program_counter),
-            program: convert_u8_to_u16(program),
-            data: convert_u8_to_u16(data),
-            ..Default::default()
-        }
-    }
-
-    fn parse_assembly_line(
+    fn encode(
         address: u64,
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
@@ -112,11 +106,23 @@ impl Processor for Risc16 {
         };
         Ok(instruction.to_be_bytes().to_vec())
     }
+}
 
-    fn step(&mut self) -> usize {
+impl Processor for Risc16 {
+    fn new(program_counter: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
+        let program_counter = Word::try_from(program_counter / 2).unwrap();
+        Risc16 {
+            program_counter: Wrapping(program_counter),
+            program: convert_u8_to_u16(program),
+            data: convert_u8_to_u16(data),
+            ..Default::default()
+        }
+    }
+
+    fn step(&mut self) -> Result<Step, String> {
         use enums::Opcode::*;
         if usize::from(self.program_counter.0) >= self.program.len() {
-            return 0;
+            return Ok(Step::Halt);
         }
         let inst = self.program[usize::from(self.program_counter.0)];
         self.program_counter += 1;
@@ -141,21 +147,23 @@ impl Processor for Risc16 {
             Lui => self.registers[ra] = Wrapping(inst << 6),
             // port load
             Lw if rb == 0 => {
-                let port = Port::try_from(usize::from(addr)).expect("invalid port");
+                let port = Port::try_from(usize::from(addr))?;
                 self.registers[ra] = Wrapping(self.port_state.read_port(port));
             }
             // port store
             Sw if rb == 0 => {
-                let port = Port::try_from(usize::from(addr)).expect("invalid port");
-                self.port_state.write_port(port, self.registers[ra].0);
+                let port = Port::try_from(usize::from(addr))?;
+                self.port_state.write_port(port, self.registers[ra].0)?;
             }
             // memory load
             Lw => {
-                self.registers[ra] = Wrapping(self.data[usize::from(addr)]);
+                let value = self.data.get(usize::from(addr));
+                self.registers[ra] = Wrapping(*value.ok_or_else(|| invalid_address(addr))?);
             }
             // memory store
             Sw => {
-                self.data[usize::from(addr)] = self.registers[ra].0;
+                let value = self.data.get_mut(usize::from(addr));
+                *value.ok_or_else(|| invalid_address(addr))? = self.registers[ra].0;
             }
             // branch if equal
             Beq => {
@@ -170,7 +178,7 @@ impl Processor for Risc16 {
             }
         }
         self.registers[0] = Wrapping(0); // R0 is always 0
-        usize::from(usize::from(self.program_counter.0) < self.program.len())
+        Ok(Step::Continue)
     }
 }
 

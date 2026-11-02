@@ -12,21 +12,22 @@ pub struct MemoryMappedRam {
 }
 
 impl MemoryMappedRam {
-    pub fn read(&mut self, addr: u8) -> Wrapping<u8> {
+    pub fn read(&mut self, addr: u8) -> Result<Wrapping<u8>, String> {
         if addr >= PORTS_START {
-            let port = Port::try_from(usize::from(addr & 0b1111)).unwrap();
-            Wrapping(self.ports.read_port(port))
+            let port = Port::try_from(usize::from(addr & 0b1111))?;
+            Ok(Wrapping(self.ports.read_port(port)))
         } else {
-            Wrapping(self.data[usize::from(addr)])
+            Ok(Wrapping(self.data[usize::from(addr)]))
         }
     }
 
-    pub fn write(&mut self, addr: u8, value: u8) {
+    pub fn write(&mut self, addr: u8, value: u8) -> Result<(), String> {
         if addr >= PORTS_START {
-            let port = Port::try_from(usize::from(addr & 0b1111)).unwrap();
-            self.ports.write_port(port, value);
+            let port = Port::try_from(usize::from(addr & 0b1111))?;
+            self.ports.write_port(port, value)
         } else {
             self.data[usize::from(addr)] = value;
+            Ok(())
         }
     }
 }

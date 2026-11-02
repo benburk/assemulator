@@ -15,7 +15,6 @@ impl<T> State<T>
 where
     T: std::fmt::Display + Copy + From<u8> + TryFrom<u64>,
     u8: TryFrom<T>,
-    <u8 as TryFrom<T>>::Error: core::fmt::Debug,
 {
     pub fn read_port(&mut self, port: Port) -> T {
         match port {
@@ -31,17 +30,19 @@ where
         }
     }
 
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if a value written to the char port does not fit in a byte.
-    pub fn write_port(&mut self, port: Port, value: T) {
+    /// Returns an error if a value written to the char port does not fit in a byte.
+    pub fn write_port(&mut self, port: Port, value: T) -> Result<(), String> {
         match port {
             // print char to screen
             Port::Char => {
-                print!("{}", char::from(u8::try_from(value).unwrap()));
+                let byte = u8::try_from(value).map_err(|_| format!("{value} is not a char"))?;
+                print!("{}", char::from(byte));
             }
             // print unsigned integer to screen
             Port::Ticker => println!("{value}"),
         }
+        Ok(())
     }
 }

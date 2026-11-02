@@ -4,7 +4,7 @@ use std::num::Wrapping;
 
 use memory::MemoryMappedRam;
 
-use assemulator::{mask, run, Argument, Processor};
+use assemulator::{mask, run, Argument, InstructionSet, Processor, Step};
 use enums::Register;
 
 fn is_reg_ram(reg: Register) -> bool {
@@ -101,65 +101,38 @@ impl Mira {
         }
     }
 
-    fn read_argument(&mut self, reg: Register, imm: Wrapping<u8>) -> Wrapping<u8> {
+    fn read_argument(&mut self, reg: Register, imm: Wrapping<u8>) -> Result<Wrapping<u8>, String> {
         match reg {
-            Register::A => self.regs[usize::from(reg)],
-            Register::B => self.regs[usize::from(reg)],
-            Register::C => self.regs[usize::from(reg)],
             Register::RamK => self.data.read(imm.0),
-            Register::X => self.regs[usize::from(reg)],
-            Register::RamX => {
-                let base = self.regs[usize::from(Register::X)];
-                let addr = base + imm;
-                self.data.read(addr.0)
-            }
-            Register::Y => self.regs[usize::from(reg)],
-            Register::RamY => {
-                let base = self.regs[usize::from(Register::Y)];
-                let addr = base + imm;
-                self.data.read(addr.0)
-            }
+            Register::RamX => self.data.read((self.regs[3] + imm).0),
+            Register::RamY => self.data.read((self.regs[4] + imm).0),
+            reg => Ok(self.regs[usize::from(reg)]),
         }
     }
 
-    fn write_to_destination(&mut self, dest: Register, imm: Wrapping<u8>, value: Wrapping<u8>) {
+    fn write_to_destination(
+        &mut self,
+        dest: Register,
+        imm: Wrapping<u8>,
+        value: Wrapping<u8>,
+    ) -> Result<(), String> {
         match dest {
-            Register::A => self.regs[0] = value,
-            Register::B => self.regs[1] = value,
-            Register::C => self.regs[2] = value,
-            Register::RamK => {
-                self.data.write(imm.0, value.0);
-            }
-            Register::X => self.regs[3] = value,
-            Register::RamX => {
-                let base = self.regs[3];
-                let addr = base + imm;
-                self.data.write(addr.0, value.0);
-            }
-            Register::Y => self.regs[4] = value,
-            Register::RamY => {
-                let base = self.regs[4];
-                let addr = base + imm;
-                self.data.write(addr.0, value.0);
+            Register::RamK => self.data.write(imm.0, value.0),
+            Register::RamX => self.data.write((self.regs[3] + imm).0, value.0),
+            Register::RamY => self.data.write((self.regs[4] + imm).0, value.0),
+            reg => {
+                self.regs[usize::from(reg)] = value;
+                Ok(())
             }
         }
     }
 }
 
-impl Processor for Mira {
+impl InstructionSet for Mira {
     type Opcode = enums::Opcode;
     type Register = enums::Register;
 
-    fn new(addr: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
-        Self {
-            program_counter: Wrapping(addr as WordSize),
-            program,
-            data: MemoryMappedRam::from(data.as_slice()),
-            ..Default::default()
-        }
-    }
-
-    fn parse_assembly_line(
+    fn encode(
         _: u64,
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
@@ -205,10 +178,21 @@ impl Processor for Mira {
             _ => Err(format!("invalid instruction: {opcode:?} {arguments:?}")),
         }
     }
+}
 
-    fn step(&mut self) -> usize {
+impl Processor for Mira {
+    fn new(addr: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
+        Self {
+            program_counter: Wrapping(addr as WordSize),
+            program,
+            data: MemoryMappedRam::from(data.as_slice()),
+            ..Default::default()
+        }
+    }
+
+    fn step(&mut self) -> Result<Step, String> {
         if usize::from(self.program_counter.0) >= self.program.len() {
-            return 0;
+            return Ok(Step::Halt);
         }
 
         let inst = self.program[usize::from(self.program_counter.0)];
@@ -243,14 +227,14 @@ impl Processor for Mira {
 
             if inst_type == 0b01 {
                 // group 1: `arg op= immediate`
-                a = self.read_argument(reg2, byte1);
+                a = self.read_argument(reg2, byte1)?;
                 b = self.read_immediate(byte1, byte2, is_reg_ram(reg2));
             } else if reg2 == Register::A {
                 // group 0 with `arg == A` is a nop
-                return usize::from(instruction_length);
+                return Ok(Step::Continue);
             } else {
                 a = self.regs[0];
-                b = self.read_argument(reg2, byte1);
+                b = self.read_argument(reg2, byte1)?;
             }
 
             let result = match arg1 {
@@ -267,7 +251,7 @@ impl Processor for Mira {
 
             if arg1 != 0b100 {
                 if inst_type == 0b01 {
-                    self.write_to_destination(reg2, byte1, result);
+                    self.write_to_destination(reg2, byte1, result)?;
                 } else {
                     self.regs[0] = result;
                 }
@@ -282,15 +266,15 @@ impl Processor for Mira {
             if reg1 == reg2 {
                 // move immediate
                 let imm = self.read_immediate(byte1, byte2, is_reg_ram(reg1));
-                self.write_to_destination(reg1, byte1, imm);
+                self.write_to_destination(reg1, byte1, imm)?;
             } else {
                 // move
-                let value = self.read_argument(reg2, byte1);
-                self.write_to_destination(reg1, byte1, value);
+                let value = self.read_argument(reg2, byte1)?;
+                self.write_to_destination(reg1, byte1, value)?;
             }
         } else if arg1 <= 0b101 {
             // type 3
-            let b = self.read_argument(reg2, byte1);
+            let b = self.read_argument(reg2, byte1)?;
             let result = match arg1 {
                 0b000 => {
                     self.carry_flag = b >> 7 == Wrapping(1);
@@ -313,7 +297,7 @@ impl Processor for Mira {
                 _ => unreachable!(),
             };
             self.update_nz_flags(result);
-            self.write_to_destination(reg2, byte1, result);
+            self.write_to_destination(reg2, byte1, result)?;
         } else {
             match arg1 {
                 0b110 => {
@@ -341,7 +325,7 @@ impl Processor for Mira {
             }
         }
 
-        usize::from(compute_instruction_length(inst))
+        Ok(Step::Continue)
     }
 }
 

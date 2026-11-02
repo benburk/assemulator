@@ -1,26 +1,19 @@
-use strum::ParseError;
-
+/// A register named `r0` to `r{N-1}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Register<const N: usize>(pub usize);
 
 impl<const N: usize> TryFrom<&str> for Register<N> {
-    type Error = ParseError;
+    type Error = ();
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let mut chars = value.chars();
-
-        if chars.next() != Some('r') {
-            return Err(ParseError::VariantNotFound);
+        let index = value
+            .strip_prefix('r')
+            .and_then(|x| x.parse::<usize>().ok())
+            .ok_or(())?;
+        if index < N {
+            Ok(Self(index))
+        } else {
+            Err(())
         }
-
-        let value = chars
-            .as_str()
-            .parse::<usize>()
-            .map_err(|_| ParseError::VariantNotFound)?;
-
-        if value >= N {
-            return Err(ParseError::VariantNotFound);
-        }
-        Ok(Self(value))
     }
 }

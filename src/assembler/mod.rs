@@ -9,7 +9,7 @@ use pest::iterators::{Pair, Pairs};
 use symbol_table::{interpret_escaped_chars, SymbolTable};
 use template::Template;
 
-use crate::{Argument, Endian, Processor};
+use crate::{Argument, Endian, InstructionSet};
 
 mod expression;
 mod parser;
@@ -74,7 +74,6 @@ fn check_range(value: u64, bytes: usize, signed: bool) -> Result<(), String> {
     }
 }
 
-#[derive(Default)]
 pub struct Assembler<T> {
     program: Vec<u8>,
     data: Vec<u8>,
@@ -94,7 +93,22 @@ pub struct AssemblyResult {
     pub data: Vec<u8>,
 }
 
-impl<T: Processor> Assembler<T> {
+// not derived, which would require `T: Default`
+impl<T> Default for Assembler<T> {
+    fn default() -> Self {
+        Self {
+            program: Vec::new(),
+            data: Vec::new(),
+            symbol_table: SymbolTable::default(),
+            is_final_pass: false,
+            open_ifs: 0,
+            included_files: HashSet::new(),
+            phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: InstructionSet> Assembler<T> {
     pub fn assemble(path: &Path) -> Result<AssemblyResult, String> {
         let mut assembler = Self::default();
 
@@ -139,7 +153,7 @@ impl<T: Processor> Assembler<T> {
                 arguments.push(argument);
             }
 
-            let bytes = T::parse_assembly_line(self.program.len() as u64, opcode, &arguments);
+            let bytes = T::encode(self.program.len() as u64, opcode, &arguments);
             let bytes = bytes.map_err(|err| format_error(pair, &err))?;
 
             self.program.extend(bytes);
