@@ -1,0 +1,13 @@
+
+Guess a number in the range: 0
+10
+> Too high! Guess lower
+
+Guess a number in the range: 0
+4
+> Too high! Guess lower
+
+Guess a number in the range: 0
+1
+> Too high! Guess lower
+You lose! The number I was thinking of was: 0

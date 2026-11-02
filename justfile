@@ -36,9 +36,22 @@ test:
 run cpu *args:
     cargo run --release --example {{ cpu }} -- {{ args }}
 
-# Assemble every finished example program (skips wip/)
+# Assemble every finished example program and check the output of those with a .out file
 examples:
+    #!/usr/bin/env bash
+    set -euo pipefail
     cargo build --release --examples
-    fd -e asm -E wip -E ports.asm -E macros.asm . examples/mira/programs -x ./target/release/examples/mira {} assemble > /dev/null
-    fd -e asm -E wip -E ports.asm . examples/photon/programs -x ./target/release/examples/photon {} assemble > /dev/null
-    fd -e asm -E wip -E ports.asm -E macros.asm . examples/risc16/programs -x ./target/release/examples/risc16 {} assemble > /dev/null
+    status=0
+    for program in $(fd -e asm -E wip -E ports.asm -E macros.asm . examples); do
+        cpu=$(echo "$program" | cut -d/ -f2)
+        [ -x "./target/release/examples/$cpu" ] || continue
+        expected="${program%.asm}.out"
+        input="${program%.asm}.in"
+        [ -f "$input" ] || input=/dev/null
+        if [ -f "$expected" ]; then
+            ./target/release/examples/$cpu "$program" run < "$input" | diff -u "$expected" - || { echo "FAIL $program"; status=1; }
+        else
+            ./target/release/examples/$cpu "$program" assemble > /dev/null || { echo "FAIL $program"; status=1; }
+        fi
+    done
+    exit $status
