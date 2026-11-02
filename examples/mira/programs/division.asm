@@ -1,5 +1,12 @@
+    .include "ports.asm"
+
 ; B = dividend
 ; C = divisor
+; out B: quotient
+; out A: remainder
+main:
+    mov b, 27
+    mov c, 7
     mov a, 0
     mov x, 8
     
@@ -12,3 +19,5 @@ L2: rol b
     dec x
     bne L1
 
+    mov ramK, ticker, b ; 3
+    mov ramK, ticker, a ; 6

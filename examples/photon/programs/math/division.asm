@@ -1,3 +1,5 @@
+        .include "../ports.asm"
+
 ; 8/8=Q8 R8 - Shifting division
 ; arg a: dividend
 ; arg b: divisor
@@ -26,5 +28,5 @@ divide: geq a, b
 main:   mov a, 27
         mov b, 0b111
         jsr div2
-        pst c, @ticker
-        pst a, @ticker
+        pst c, ticker
+        pst a, ticker

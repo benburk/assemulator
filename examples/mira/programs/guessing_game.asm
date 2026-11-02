@@ -1,15 +1,18 @@
 ; number guessing game
+; prints 2 for "guess higher" and 1 for "guess lower"
+; then the number it was thinking of once it runs out of guesses
 ;       b: upper
 ;       c: lower
 ;       x: guess
-;       y: temp
+;       y: hint
+        .include "ports.asm"
 
         ; set initial guess boundaries
-        mov b, 10
+main:   mov b, 10
 
 loop:
         ; get guess
-        mov x, $0[y]
+        mov x, ramK, ticker
 
         ; A = 2 * guess - upper - lower
         mov a, x
@@ -33,6 +36,8 @@ guess_lower:
         mov y, 1        ; 1 => guess lower
 
 skip:
+        mov ramK, ticker, y
+
         ; calculate upper - lower
         mov a, b
         sub c
@@ -40,6 +45,4 @@ skip:
         bpl loop        ; loop while upper - lower >= 0
 
         ; GAME OVER
-        mov x, b
-        mov a, $0[x]    ; you lose, i was thinking of x
-
+        mov ramK, ticker, b ; you lose, i was thinking of b

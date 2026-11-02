@@ -38,6 +38,6 @@ movi:   .macro dest, x
         .endif
 
         .if $x >> 6 == 0 || ($x >> 6) & 1023 == 1023
-        add $dest, r1, $x & 127
+        add $dest, r0, $x & 127
         .endif
         .endm

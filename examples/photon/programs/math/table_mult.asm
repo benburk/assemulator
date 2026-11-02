@@ -1,3 +1,5 @@
+        .include "../ports.asm"
+
 ; table multiplication
 ; works if a+b <= 31
 ; TODO: need to take abs when subtracting
@@ -23,4 +25,4 @@ table_multiply:
 main:   mov a, 5
         mov b, 7
         jsr table_multiply
-        pst a, @ticker
+        pst a, ticker

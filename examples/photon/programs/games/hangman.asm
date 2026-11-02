@@ -1,3 +1,5 @@
+        .include "../ports.asm"
+
 ; Fancy hash table idea
 ; 
 ; table[26] contains 0 if letter not present, or starting index
@@ -9,8 +11,8 @@
 ; Prints a null-terminated string
 ; arg a: pointer to string
 ; clobbers b
-l1:      pst b, @char   ; print char
-str.print:
+l1:      pst b, char   ; print char
+print:
         pop b, a        ; load char
         bt b, l1        ; loop while char != 0
         ret
@@ -22,10 +24,10 @@ word2:  .strz "********"
 
 main:  ; print word and ask for guess
         mov a, word2
-        jsr str.print
+        jsr print
         mov a, '\n'
-        pst a, @char
-        pld d, @char            ; get guess
+        pst a, char
+        pld d, char            ; get guess
 
         ; setup loop variables
         mov a, secret           ; load secret
@@ -34,11 +36,11 @@ main:  ; print word and ask for guess
         jmp start
 
         ; substitute guess into word2
-store:  st e, b, -1             ; store in word2
 loop:   add b, 1
         pop e, a                ; load char
         eq d, e                 ; compare guess to char
-        bt store                ; if match, store guess
+        bf start
+        st e, b, -1             ; if match, store guess in word2
 start:  btd c, loop
 
         jmp main

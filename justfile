@@ -35,3 +35,10 @@ test:
 # Run an example CPU, e.g. `just run photon examples/photon/programs/hello_world.asm run`
 run cpu *args:
     cargo run --release --example {{ cpu }} -- {{ args }}
+
+# Assemble every finished example program (skips wip/)
+examples:
+    cargo build --release --examples
+    fd -e asm -E wip -E ports.asm -E macros.asm . examples/mira/programs -x ./target/release/examples/mira {} assemble > /dev/null
+    fd -e asm -E wip -E ports.asm . examples/photon/programs -x ./target/release/examples/photon {} assemble > /dev/null
+    fd -e asm -E wip -E ports.asm -E macros.asm . examples/risc16/programs -x ./target/release/examples/risc16 {} assemble > /dev/null

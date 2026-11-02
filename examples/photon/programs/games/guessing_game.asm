@@ -1,7 +1,9 @@
+        .include "../ports.asm"
+
 ; Print null-terminated string
 ; arg a: pointer to string
 ; clobbers: b
-loop:   pst b, @char    ; print char
+loop:   pst b, char    ; print char
 print:  pop b, a        ; load char
         bt b, loop      ; loop while char != 0
         ret
@@ -20,9 +22,9 @@ game_over:      .strz "You lose! The number I was thinking of was: "
 
 game:   mov a, guess_str
         jsr print
-        pst d, @ticker
-        pst c, @ticker
-        pld b, @ticker  ; get guess from user
+        pst d, ticker
+        pst c, ticker
+        pld b, ticker  ; get guess from user
 
         ; check if 2 * guess - lower >= upper
         shl a, b
@@ -48,7 +50,7 @@ skip:   eq c, d         ; loop while upper != lower
 ; GAME OVER
         mov a, game_over
         jsr print
-        pst c, @ticker  ; you lose, i was thinking of x
+        pst c, ticker  ; you lose, i was thinking of x
 
 
 ; Run game with bounds [0, 10]

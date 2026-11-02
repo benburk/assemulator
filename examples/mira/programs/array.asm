@@ -1,25 +1,24 @@
+        .include "ports.asm"
+
+arr:    .i8 3, 7, 2, 4
+len:    .set 4
+
 ; Array sum
-; sum the values in an array
-arr:    .i8 1,2,5,2
-
-        mov x, 3    ; len of arr-1
-loop:   add arr[x]
+; sum the values in an array into A
+main:   mov a, 0
+        mov x, len - 1
+.sum:   add ramX, arr
         dec x
-        bpl loop
-
-
-mov x, 3
-
+        bpl .sum
+        mov ramK, ticker, a
 
 ; Max of unsigned array
 ; max value in A
-arr:    .u8 3,7,2,4
-        mov x, 3
-new:	mov a, arr[x]
-loop:	dec x
-        bmi end
-        cmp arr[x]
-        bcs loop
-        jmp new
-end:
-
+        mov x, len - 1
+.new:   mov a, ramX, arr
+.loop:  dec x
+        bmi .end
+        cmp ramX, arr
+        bcs .loop
+        jmp .new
+.end:   mov ramK, ticker, a

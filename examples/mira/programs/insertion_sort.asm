@@ -40,3 +40,12 @@ next:   mov ramY,arr+1,  b
         inc x
         dec c
         bne outer
+
+        ; print the sorted array
+        mov x, 0
+print:  mov a, ramX, arr
+        mov ramK, ticker, a
+        inc x
+        mov a, x
+        cmp a, 10
+        bne print
