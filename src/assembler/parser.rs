@@ -5,6 +5,6 @@ use pest::{Parser, iterators::Pairs};
 #[grammar = "./src/assembler/grammar.pest"]
 struct AsmParser;
 
-pub fn parse(text: &str) -> Result<Pairs<'_, Rule>, String> {
-    AsmParser::parse(Rule::lines, text).map_err(|e| e.to_string())
+pub fn parse(text: &str) -> Result<Pairs<'_, Rule>, pest::error::Error<Rule>> {
+    AsmParser::parse(Rule::lines, text)
 }

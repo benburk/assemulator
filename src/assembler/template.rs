@@ -1,14 +1,22 @@
+use std::path::{Path, PathBuf};
+
 #[derive(Debug, Clone)]
 pub struct Template {
     /// List of arguments.
     args: Vec<String>,
     /// List of instructions.
     body: String,
+    /// File the macro is defined in.
+    path: PathBuf,
 }
 
 impl Template {
-    pub const fn new(args: Vec<String>, body: String) -> Self {
-        Self { args, body }
+    pub const fn new(args: Vec<String>, body: String, path: PathBuf) -> Self {
+        Self { args, body, path }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
     pub const fn arity(&self) -> usize {
@@ -42,6 +50,8 @@ impl Template {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::Template;
 
     #[test]
@@ -49,6 +59,7 @@ mod tests {
         let template = Template::new(
             vec!["x".to_owned(), "xy".to_owned()],
             "add $xy, $x+1 ; $other".to_owned(),
+            PathBuf::new(),
         );
         assert_eq!(template.expand(&["r1", "r2"]), "add r2, r1+1 ; $other");
     }

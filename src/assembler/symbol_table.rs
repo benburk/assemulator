@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::mask;
 
-use super::{Token, expression, format_error, parser::Rule, template::Template};
+use super::{Error, Token, expression, parser::Rule, template::Template};
 
 pub fn interpret_escaped_chars(text: &str) -> String {
     let mut out = String::new();
@@ -95,7 +95,7 @@ impl SymbolTable {
             .map_or_else(|| label.to_string(), |prefix| format!("{prefix}::{label}"))
     }
 
-    fn add_entry(&mut self, label: &Token, value: LabelEntry) -> Result<(), String> {
+    fn add_entry(&mut self, label: &Token, value: LabelEntry) -> Result<(), Error> {
         let mut label_str = self.resolve_label(label.as_str());
 
         if is_local_label(&label_str) {
@@ -112,7 +112,7 @@ impl SymbolTable {
                 } else {
                     "label already defined"
                 };
-                return Err(format_error(label, msg));
+                return Err(Error::at(label, msg));
             }
         }
 
@@ -126,7 +126,7 @@ impl SymbolTable {
         &mut self,
         label: Option<Token>,
         address: u64,
-    ) -> Result<(), String> {
+    ) -> Result<(), Error> {
         let Some(label) = label else { return Ok(()) };
 
         let entry = LabelEntry {
@@ -136,7 +136,7 @@ impl SymbolTable {
         self.add_entry(&label, entry)
     }
 
-    pub fn declare_data_label(&mut self, label: Option<Token>, address: u64) -> Result<(), String> {
+    pub fn declare_data_label(&mut self, label: Option<Token>, address: u64) -> Result<(), Error> {
         let Some(label) = label else { return Ok(()) };
 
         let entry = LabelEntry {
@@ -146,7 +146,7 @@ impl SymbolTable {
         self.add_entry(&label, entry)
     }
 
-    pub fn declare_value(&mut self, label: Option<Token>, value: u64) -> Result<(), String> {
+    pub fn declare_value(&mut self, label: Option<Token>, value: u64) -> Result<(), Error> {
         let Some(label) = label else { return Ok(()) };
 
         let entry = LabelEntry {
@@ -156,11 +156,7 @@ impl SymbolTable {
         self.add_entry(&label, entry)
     }
 
-    pub fn declare_macro(
-        &mut self,
-        label: Option<Token>,
-        template: Template,
-    ) -> Result<(), String> {
+    pub fn declare_macro(&mut self, label: Option<Token>, template: Template) -> Result<(), Error> {
         let Some(label) = label else { return Ok(()) };
 
         let entry = LabelEntry {
@@ -206,7 +202,7 @@ impl SymbolTable {
         local_labels_above.or(local_labels_below)
     }
 
-    fn get_label(&self, label: &Token) -> Result<u64, String> {
+    fn get_label(&self, label: &Token) -> Result<u64, Error> {
         let label_str = self.resolve_label(label.as_str());
 
         let entry = if is_local_label(&label_str) {
@@ -220,7 +216,7 @@ impl SymbolTable {
                 idx: _,
                 label: LabelType::Address(x) | LabelType::Data(x) | LabelType::Value(x),
             }) => Ok(*x),
-            _ => Err(format_error(label, "undefined label")),
+            _ => Err(Error::at(label, "undefined label")),
         }
     }
 
@@ -228,23 +224,23 @@ impl SymbolTable {
     /// with their values.
     ///
     /// Returns an error if a label is undefined or the value doesn't fit in `U`.
-    pub fn expression<U>(&self, arg: &Token) -> Result<U, String>
+    pub fn expression<U>(&self, arg: &Token) -> Result<U, Error>
     where
         U: TryFrom<u64> + Copy,
     {
         let value = self.evaluate(arg, None)?;
         let n_bits = 8 * std::mem::size_of::<U>();
-        mask(value, n_bits).map_err(|err| format_error(arg, &err))
+        mask(value, n_bits).map_err(|err| Error::at(arg, &err))
     }
 
     /// Evaluates the offset of a memory operand like `[arr + x]`, where
     /// `register` names its base register.
-    pub fn memory_offset(&self, arg: &Token, register: &str) -> Result<u64, String> {
+    pub fn memory_offset(&self, arg: &Token, register: &str) -> Result<u64, Error> {
         let offset = self.evaluate(arg, Some((register, 0)))?;
         // the register must be added to the offset, e.g. `[arr + x]` but not `[x * 2]`
         for probe in [1, 0x1234_5678] {
             if self.evaluate(arg, Some((register, probe)))? != offset.wrapping_add(probe) {
-                return Err(format_error(
+                return Err(Error::at(
                     arg,
                     "a register in a memory operand can only be added to the offset",
                 ));
@@ -254,7 +250,7 @@ impl SymbolTable {
     }
 
     /// Evaluates an expression, substituting `register` with its given value.
-    fn evaluate(&self, arg: &Token, register: Option<(&str, u64)>) -> Result<u64, String> {
+    fn evaluate(&self, arg: &Token, register: Option<(&str, u64)>) -> Result<u64, Error> {
         let text = arg.as_str();
         let offset = arg.as_span().start();
         let mut full_expr = String::new();
@@ -277,9 +273,9 @@ impl SymbolTable {
                 }
                 Rule::number => continue,
                 Rule::string => {
-                    return Err(format_error(&symbol, "expected a number, not a string"));
+                    return Err(Error::at(&symbol, "expected a number, not a string"));
                 }
-                _ => return Err(format_error(&symbol, "unexpected token")),
+                _ => return Err(Error::at(&symbol, "unexpected token")),
             };
             full_expr.push_str(&text[last..start]);
             full_expr.push_str(&value.to_string());
@@ -288,7 +284,7 @@ impl SymbolTable {
         full_expr.push_str(&text[last..]);
         full_expr.retain(|c| c != ' ');
 
-        expression::parse(&full_expr).map_err(|err| format_error(arg, &err))
+        expression::parse(&full_expr).map_err(|err| Error::at(arg, &err))
     }
 
     /// Replace prefix.

@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use strum_macros::EnumString;
 
-use super::{Assembler, AssemblyResult};
+use super::{Assembler, AssemblyResult, Error};
 use crate::{Argument, Endian, InstructionSet, Register, mask};
 
 #[derive(Debug, Clone, Copy, EnumString)]
@@ -44,7 +44,7 @@ impl<const BIG_ENDIAN: bool> InstructionSet for Test<BIG_ENDIAN> {
     }
 }
 
-fn assemble_with<const BIG_ENDIAN: bool>(source: &str) -> Result<AssemblyResult, String> {
+fn assemble_with<const BIG_ENDIAN: bool>(source: &str) -> Result<AssemblyResult, Error> {
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
     let path = std::env::temp_dir().join(format!(
         "assemulator-test-{}-{}.asm",
@@ -190,4 +190,30 @@ emit 1, 2
 ";
     assert_eq!(data(source), [2, 1]);
     assert!(fails("emit: .macro x\n.u8 $x\n.endm\nemit 1, 2\n"));
+}
+
+fn error(source: &str) -> String {
+    assemble_with::<true>(source).err().unwrap().to_string()
+}
+
+#[test]
+fn errors_name_the_file_and_line() {
+    let message = error("nop\nbyte missing\n");
+    assert!(message.contains(".asm:2:6"), "{message}");
+    assert!(message.contains("undefined label"), "{message}");
+}
+
+#[test]
+fn macro_errors_point_at_the_definition_and_the_call() {
+    let message = error("emit: .macro x\n    .u8 $x\n.endm\nemit missing\n");
+    assert!(message.contains(".asm:2:9"), "{message}");
+    assert!(message.contains(".u8 missing"), "{message}");
+    assert!(message.contains(".asm:4:1"), "{message}");
+    assert!(message.contains("in expansion of this macro"), "{message}");
+}
+
+#[test]
+fn unclosed_blocks_point_at_their_start() {
+    assert!(error("nop\n.if 1\nnop\n").contains(".asm:2:1"));
+    assert!(error("m: .macro\nnop\n").contains("missing .endm"));
 }
