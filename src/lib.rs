@@ -13,7 +13,7 @@ use clap::Parser;
 use get_input::input;
 pub use mask::mask;
 pub use port::{Port, State};
-pub use processor::{Argument, Processor};
+pub use processor::{Argument, Endian, Processor};
 pub use register::Register;
 
 #[derive(Parser)]

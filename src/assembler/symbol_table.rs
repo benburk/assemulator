@@ -26,15 +26,30 @@ pub fn interpret_escaped_chars(text: &str) -> String {
 }
 
 enum LabelType {
+    /// Address in program memory.
     Address(u64),
+    /// Address in data memory.
+    Data(u64),
+    /// Constant declared with `.set`.
     Value(u64),
     Template(Template),
+}
+
+impl LabelType {
+    /// The address of a label that marks a location in memory.
+    const fn location(&self) -> Option<u64> {
+        match self {
+            Self::Address(x) | Self::Data(x) => Some(*x),
+            Self::Value(_) | Self::Template(_) => None,
+        }
+    }
 }
 
 impl std::fmt::Debug for LabelEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.label {
             LabelType::Address(x) => write!(f, "Address({x})"),
+            LabelType::Data(x) => write!(f, "Data({x})"),
             LabelType::Value(x) => write!(f, "Value({x})"),
             LabelType::Template(_) => write!(f, "Template(...)"),
         }
@@ -51,6 +66,7 @@ pub struct SymbolTable {
     symbols: HashMap<String, LabelEntry>,
     label_prefix: Option<String>,
     label_index: usize,
+    is_final_pass: bool,
 }
 
 fn is_local_label(label: &str) -> bool {
@@ -68,8 +84,9 @@ impl SymbolTable {
         };
         Some(address)
     }
-    pub const fn new_pass(&mut self) {
+    pub const fn new_pass(&mut self, is_final_pass: bool) {
         self.label_index = 0;
+        self.is_final_pass = is_final_pass;
     }
 
     fn resolve_label(&self, label: &str) -> String {
@@ -83,9 +100,19 @@ impl SymbolTable {
 
         if is_local_label(&label_str) {
             label_str = format!("{label_str}-{}", self.label_index);
-        } else if let Some(entry) = self.symbols.get(&label_str) {
-            if entry.idx != self.label_index {
-                return Err(format_error(label, "label already defined"));
+        }
+
+        if let Some(entry) = self.symbols.get(&label_str) {
+            let moved = entry.label.location() != value.label.location();
+            if entry.idx != self.label_index || moved {
+                // A real duplicate is caught in the first pass, so in the final pass
+                // this means the layout changed after forward references resolved.
+                let msg = if self.is_final_pass {
+                    "label moved between passes: something above it depends on a label defined later"
+                } else {
+                    "label already defined"
+                };
+                return Err(format_error(label, msg));
             }
         }
 
@@ -105,6 +132,16 @@ impl SymbolTable {
         let entry = LabelEntry {
             idx: self.label_index,
             label: LabelType::Address(address),
+        };
+        self.add_entry(&label, entry)
+    }
+
+    pub fn declare_data_label(&mut self, label: Option<Token>, address: u64) -> Result<(), String> {
+        let Some(label) = label else { return Ok(()) };
+
+        let entry = LabelEntry {
+            idx: self.label_index,
+            label: LabelType::Data(address),
         };
         self.add_entry(&label, entry)
     }
@@ -181,7 +218,7 @@ impl SymbolTable {
         match entry {
             Some(LabelEntry {
                 idx: _,
-                label: LabelType::Address(x) | LabelType::Value(x),
+                label: LabelType::Address(x) | LabelType::Data(x) | LabelType::Value(x),
             }) => Ok(*x),
             _ => Err(format_error(label, "undefined label")),
         }
@@ -207,11 +244,10 @@ impl SymbolTable {
 
             let (start, end, value) = match symbol.as_rule() {
                 Rule::label => (start, end, self.get_label(&symbol)?),
-                Rule::char => {
-                    let c = interpret_escaped_chars(symbol.as_str());
-                    let value = u64::from(c.chars().next().unwrap_or_default());
-                    // also replace the surrounding quotes
-                    (start - 1, end + 1, value)
+                Rule::character => {
+                    let inner = symbol.clone().into_inner().as_str();
+                    let c = interpret_escaped_chars(inner);
+                    (start, end, u64::from(c.chars().next().unwrap_or_default()))
                 }
                 Rule::number => continue,
                 Rule::string => {

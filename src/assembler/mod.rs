@@ -9,12 +9,14 @@ use pest::iterators::{Pair, Pairs};
 use symbol_table::{interpret_escaped_chars, SymbolTable};
 use template::Template;
 
-use crate::{Argument, Processor};
+use crate::{Argument, Endian, Processor};
 
 mod expression;
 mod parser;
 mod symbol_table;
 mod template;
+#[cfg(test)]
+mod tests;
 
 /// Pretty prints error.
 fn format_error(pair: &Pair<Rule>, msg: &str) -> String {
@@ -27,12 +29,59 @@ fn format_error(pair: &Pair<Rule>, msg: &str) -> String {
     .to_string()
 }
 
+/// Returns the name of a directive, e.g. `if` for `.if x`.
+fn directive_name<'a>(pair: &Token<'a>) -> Option<&'a str> {
+    (pair.as_rule() == Rule::directive).then(|| pair.clone().into_inner().next().unwrap().as_str())
+}
+
+/// The directive that ended a skipped conditional block.
+#[derive(PartialEq, Eq)]
+enum BlockEnd {
+    Else,
+    Endif,
+}
+
+/// Skips lines up to the `.else` or `.endif` that closes the current `.if`,
+/// stepping over nested blocks. Returns `None` at end of input.
+fn skip_block(lines: &mut Pairs<Rule>, stop_at_else: bool) -> Option<BlockEnd> {
+    let mut depth = 0;
+    for line in lines {
+        match directive_name(&line) {
+            Some("if") => depth += 1,
+            Some("else") if depth == 0 && stop_at_else => return Some(BlockEnd::Else),
+            Some("endif") if depth == 0 => return Some(BlockEnd::Endif),
+            Some("endif") => depth -= 1,
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Checks that a value fits in a signed or unsigned field of `bytes` bytes.
+/// Values with the top bit set are treated as negative.
+fn check_range(value: u64, bytes: usize, signed: bool) -> Result<(), String> {
+    let value = value.cast_signed();
+    let bits = 8 * bytes;
+    let (min, max) = if signed {
+        (-(1_i64 << (bits - 1)), (1_i64 << (bits - 1)) - 1)
+    } else {
+        (0, (1_i64 << bits) - 1)
+    };
+    if (min..=max).contains(&value) {
+        Ok(())
+    } else {
+        Err(format!("{value} is outside {min}..={max}"))
+    }
+}
+
 #[derive(Default)]
 pub struct Assembler<T> {
     program: Vec<u8>,
     data: Vec<u8>,
     symbol_table: SymbolTable,
     is_final_pass: bool,
+    /// Number of `.if` blocks open in the file or macro being assembled.
+    open_ifs: usize,
     included_files: HashSet<PathBuf>,
     phantom: std::marker::PhantomData<T>,
 }
@@ -134,35 +183,13 @@ impl<T: Processor> Assembler<T> {
                 let value = self.expression::<u64>(&arg)?;
                 self.symbol_table.declare_value(label, value)?;
             }
-            "i8" => {
+            name @ ("i8" | "u8" | "i16" | "u16") => {
                 self.declare_data_label(label)?;
-                for arg in tokens {
-                    let value = self.expression::<u8>(&arg)?;
-                    self.data.push(value);
-                }
+                self.data_directive(name, tokens)?;
             }
-            "i16" => {
-                self.declare_data_label(label)?;
-                for arg in tokens {
-                    let value = self.expression::<u16>(&arg)?;
-                    self.data.extend(value.to_be_bytes());
-                }
+            name @ ("if" | "else" | "endif") => {
+                self.conditional_directive(name, pair, tokens, lines)?;
             }
-            "if" => {
-                let expr = tokens
-                    .next()
-                    .ok_or_else(|| format_error(&command, "Expected expression"))?;
-
-                let value = self.expression::<u64>(&expr)?;
-                if value == 0 {
-                    for line in lines {
-                        if line.as_str().trim() == ".endif" {
-                            break;
-                        }
-                    }
-                }
-            }
-            "endif" => {}
             "include" => {
                 let filename = tokens
                     .next()
@@ -196,6 +223,9 @@ impl<T: Processor> Assembler<T> {
                 // null-terminated string
                 self.declare_data_label(label)?;
                 for pair in tokens {
+                    if pair.as_rule() != Rule::string {
+                        return Err(format_error(&pair, "expected a string"));
+                    }
                     let parsed = interpret_escaped_chars(pair.as_str());
                     self.data.extend(parsed.as_bytes());
                     self.data.push(0);
@@ -206,9 +236,82 @@ impl<T: Processor> Assembler<T> {
         Ok(())
     }
 
+    /// Assembles `.i8`, `.u8`, `.i16` and `.u16`.
+    fn data_directive(&mut self, name: &str, tokens: Pairs<Rule>) -> Result<(), String> {
+        let bytes = if name.ends_with('8') { 1 } else { 2 };
+        let signed = name.starts_with('i');
+        for arg in tokens {
+            if arg.as_rule() == Rule::string {
+                for c in interpret_escaped_chars(arg.as_str()).bytes() {
+                    self.push_data(u64::from(c), bytes);
+                }
+            } else {
+                let value = self.expression::<u64>(&arg)?;
+                check_range(value, bytes, signed)
+                    .map_err(|err| format_error(&arg, &format!("{err} for .{name}")))?;
+                self.push_data(value, bytes);
+            }
+        }
+        Ok(())
+    }
+
+    /// Assembles `.if`, `.else` and `.endif`.
+    fn conditional_directive(
+        &mut self,
+        name: &str,
+        pair: &Token,
+        mut tokens: Pairs<Rule>,
+        lines: &mut Pairs<Rule>,
+    ) -> Result<(), String> {
+        match name {
+            "if" => {
+                let expr = tokens
+                    .next()
+                    .ok_or_else(|| format_error(pair, "Expected expression"))?;
+
+                let value = self.expression::<u64>(&expr)?;
+                if value != 0 {
+                    self.open_ifs += 1;
+                } else {
+                    match skip_block(lines, true) {
+                        Some(BlockEnd::Else) => self.open_ifs += 1,
+                        Some(BlockEnd::Endif) => {}
+                        None => return Err(format_error(pair, "missing .endif")),
+                    }
+                }
+            }
+            "else" => {
+                // reached the end of a taken `.if` branch
+                if self.open_ifs == 0 {
+                    return Err(format_error(pair, ".else without .if"));
+                }
+                if skip_block(lines, false).is_none() {
+                    return Err(format_error(pair, "missing .endif"));
+                }
+                self.open_ifs -= 1;
+            }
+            "endif" => {
+                if self.open_ifs == 0 {
+                    return Err(format_error(pair, ".endif without .if"));
+                }
+                self.open_ifs -= 1;
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+
     fn declare_data_label(&mut self, label: Option<Token>) -> Result<(), String> {
         self.symbol_table
-            .declare_value(label, self.data.len() as u64)
+            .declare_data_label(label, self.data.len() as u64)
+    }
+
+    /// Appends the low `bytes` bytes of `value` in the processor's byte order.
+    fn push_data(&mut self, value: u64, bytes: usize) {
+        match T::ENDIAN {
+            Endian::Big => self.data.extend(&value.to_be_bytes()[8 - bytes..]),
+            Endian::Little => self.data.extend(&value.to_le_bytes()[..bytes]),
+        }
     }
 
     fn declare_program_label(&mut self, label: Option<Token>) -> Result<(), String> {
@@ -233,6 +336,8 @@ impl<T: Processor> Assembler<T> {
 
     /// Parses a body of text into instructions and adds it to the program.
     fn parse_lines(&mut self, mut text: String, path: &Path) -> Result<(), String> {
+        // conditional blocks can't span files or macros
+        let outer_ifs = std::mem::take(&mut self.open_ifs);
         text.push('\n');
         let mut lines = parse(&text)?;
         let mut label = None;
@@ -256,6 +361,10 @@ impl<T: Processor> Assembler<T> {
         }
         // declare dangling label for instructions
         self.declare_program_label(label.take())?;
+        if self.open_ifs != 0 {
+            return Err(format!("missing .endif in {}", path.display()));
+        }
+        self.open_ifs = outer_ifs;
         Ok(())
     }
 
@@ -268,7 +377,7 @@ impl<T: Processor> Assembler<T> {
     }
 
     fn do_one_pass(&mut self, path: &Path) -> Result<(), String> {
-        self.symbol_table.new_pass();
+        self.symbol_table.new_pass(self.is_final_pass);
         self.included_files.clear();
         self.program.clear();
         self.data.clear();

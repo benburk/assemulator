@@ -1,6 +1,6 @@
         .include "ports.asm"
 
-text:   .i16 'H', 'e', 'l', 'l', 'o', ',', ' ', 'W', 'o', 'r', 'l', 'd', '!', '\n', '\0'
+text:   .u16 "Hello, World!\n", 0
 
 main:   lw r1, r2, text
         beq r1, r0, end

@@ -10,7 +10,7 @@ symbol = @{"."? ~ identifier}
 
 label = @{ symbol ~ ("::" ~ symbol)* }
 
-atom = _{ number | label | "(" ~ expression2 ~ ")" | "$" ~ identifier }
+atom = _{ number | label | character | "(" ~ expression2 ~ ")" | "$" ~ identifier }
 unary = _{ ("+" | "-" | "!" | "~")? ~ atom }
 expression2 = _{ unary ~ (
     (
@@ -26,7 +26,7 @@ string_quoted = _{ "\"" ~ string ~ "\"" }
 character = ${ "'" ~ char ~ "'" }
 
 
-arg = _{ expression | character | string_quoted }
+arg = _{ expression | string_quoted }
 arg_list = _{ arg ~ ("," ~ arg)* }
 
 directive = { "." ~ identifier ~ arg_list? }

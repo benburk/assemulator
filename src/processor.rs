@@ -11,9 +11,19 @@ pub enum Argument<T> {
     Imm(u64),
 }
 
+/// Byte order of multi-byte values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Endian {
+    Big,
+    Little,
+}
+
 pub trait Processor: Default {
     type Opcode: for<'a> TryFrom<&'a str, Error = ParseError> + Copy + Clone + std::fmt::Debug;
     type Register: for<'a> TryFrom<&'a str, Error = ParseError> + Copy + Clone + std::fmt::Debug;
+
+    /// Byte order used by multi-byte data directives such as `.u16`.
+    const ENDIAN: Endian = Endian::Big;
 
     /// Creates a new processor state with the PC initialized.
     ///
