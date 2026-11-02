@@ -1,21 +1,37 @@
-build:
-    cargo build
+# Display available recipes
+default:
+    just --list --unsorted
 
-run:
-    cargo run
+# Install dependencies and set up the development environment
+bootstrap:
+    cargo build --all-targets
 
-check:
-    #!/usr/bin/env fish
-    set status_flag 0
-    dprint check --config ~/.config/dprint/dprint.json; or set status_flag 1
-    cargo fmt --check; or set status_flag 1
-    cargo clippy; or set status_flag 1
-    fd -e nix | xargs -r nixfmt --check; or set status_flag 1
-    ! rg -l '[^\n]\z' --multiline; or set status_flag 1
-    exit $status_flag
+alias fmt := format
 
+# Format code
 format:
-    dprint fmt --config ~/.config/dprint/dprint.json
-    cargo fmt
-    fd -e nix | xargs -r nixfmt
-    rg -l '[^\n]\z' --multiline | xargs -r sed -i -e '$a\\'
+    just --fmt
+    dprint fmt
+    cargo fmt --all
+    fd -e nix -X nixfmt
+    # The trailing `.` is required: with no path, ripgrep reads stdin when
+    # stdin is not a TTY and blocks forever instead of searching the tree.
+    rg -l '[^\n]\z' --multiline . | xargs -r sed -i -e '$a\\'
+
+# Run linters and static analysis
+check:
+    just --fmt --check
+    dprint check
+    @fd -e md --hidden -E .git -X awk '/^[[:space:]]*[|]/ && length($0) > 80 {print FILENAME ":" FNR ": table row is " length($0) " chars (>80)"; bad=1} END {exit bad}'
+    cargo fmt --all -- --check
+    cargo clippy --workspace --all-targets -- -D warnings
+    fd -e nix -X nixfmt --check
+    ! rg -l '[^\n]\z' --multiline .
+
+# Run the test suite
+test:
+    cargo test --workspace
+
+# Run an example CPU, e.g. `just run photon examples/photon/programs/hello_world.asm run`
+run cpu *args:
+    cargo run --release --example {{ cpu }} -- {{ args }}
