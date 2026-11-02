@@ -98,17 +98,17 @@ impl Processor for Photon {
             (Pld, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1a00 | mask::<u16>(x, 8)?,
             (Pst, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1b00 | mask::<u16>(x, 8)?,
             (Ld, &[Reg(ra), Reg(rb), Imm(x)]) => {
-                ra.to_a() | 0x1c00 | rb.to_b() | mask::<u16>(x, 8)? & 0x1f
+                ra.to_a() | 0x1c00 | rb.to_b() | mask::<u16>(x, 5)?
             }
             (St, &[Reg(ra), Reg(rb), Imm(x)]) => {
-                ra.to_a() | 0x1d00 | rb.to_b() | mask::<u16>(x, 8)? & 0x1f
+                ra.to_a() | 0x1d00 | rb.to_b() | mask::<u16>(x, 5)?
             }
             (Add, &[Reg(ra), Reg(rb), Imm(x)]) => {
                 ra.to_a() | 0x1e00 | rb.to_b() | mask::<u16>(x, 5)?
             }
             (Jsr, &[Imm(x)]) => 0xf300 | mask::<u16>(x / 2, 8)?,
             (Ret, &[]) => 0xf600,
-            (Add, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1e00 | mask::<u16>(x, 5)?,
+            (Add, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1e00 | ra.to_b() | mask::<u16>(x, 5)?,
             (Shl, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10000,
             (Shlc, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10001,
             (Shlx, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10010,
@@ -118,6 +118,7 @@ impl Processor for Photon {
             (Shrx, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10110,
             (Shrb, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10111,
             (Neg, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b11100,
+            (Swap, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b11101,
             (Ld, &[Reg(ra), Reg(rb)]) => ra.to_a() | 0x1c00 | rb.to_b(),
             (St, &[Reg(ra), Reg(rb)]) => ra.to_a() | 0x1d00 | rb.to_b(),
             _ => Err("Invalid instruction".to_owned())?,
@@ -126,7 +127,9 @@ impl Processor for Photon {
     }
 
     fn step(&mut self) -> usize {
-        let inst = self.program[usize::from(self.pc.0)];
+        let Some(&inst) = self.program.get(usize::from(self.pc.0)) else {
+            return 0;
+        };
         self.pc += 1;
 
         let ra = usize::from(inst.wrapping_shr(13) & 0b111);
@@ -151,25 +154,24 @@ impl Processor for Photon {
                 0x05 => self.x = self.regs[ra] == self.regs[rb],
                 0x06 => self.x = self.regs[ra] >= self.regs[rb],
                 0x07 => self.x = (self.regs[ra].0 as i8) >= (self.regs[rb].0 as i8),
-                0x08 => self.regs[ra] += self.regs[rb],
-                0x09 => self.regs[ra] = self.regs[ra] + self.regs[rb] + Wrapping(u8::from(self.x)),
-                0x0a => {
-                    self.regs[ra] += self.regs[rb];
-                    self.x = self.regs[ra] < self.regs[rb];
+                // add: bit 0 adds the carry in, bit 1 writes the carry out
+                op @ 0x08..=0x0b => {
+                    let carry_in = u16::from(op & 1 == 1 && self.x);
+                    let sum = u16::from(self.regs[ra].0) + u16::from(self.regs[rb].0) + carry_in;
+                    self.regs[ra] = Wrapping(sum.to_le_bytes()[0]);
+                    if op & 2 != 0 {
+                        self.x = sum > 0xff;
+                    }
                 }
-                0x0b => {
-                    self.regs[ra] = self.regs[ra] + self.regs[rb] + Wrapping(u8::from(self.x));
-                    self.x = self.regs[ra] < self.regs[rb];
-                }
-                0x0c => self.regs[ra] -= self.regs[rb],
-                0x0d => self.regs[ra] = self.regs[ra] - self.regs[rb] + Wrapping(u8::from(self.x)),
-                0x0e => {
-                    self.regs[ra] -= self.regs[rb];
-                    self.x = self.regs[ra] > self.regs[rb];
-                }
-                0x0f => {
-                    self.regs[ra] = self.regs[ra] - self.regs[rb] + Wrapping(u8::from(self.x));
-                    self.x = self.regs[ra] > self.regs[rb];
+                // sub: bit 0 subtracts the borrow in, bit 1 writes the borrow out
+                op @ 0x0c..=0x0f => {
+                    let borrow_in = u16::from(op & 1 == 1 && self.x);
+                    let subtrahend = u16::from(self.regs[rb].0) + borrow_in;
+                    let a = u16::from(self.regs[ra].0);
+                    self.regs[ra] = Wrapping(a.wrapping_sub(subtrahend).to_le_bytes()[0]);
+                    if op & 2 != 0 {
+                        self.x = a < subtrahend;
+                    }
                 }
                 // shl
                 0x10 => self.regs[ra] = Wrapping(self.regs[rb].0.wrapping_shl(1)),
@@ -233,10 +235,7 @@ impl Processor for Photon {
                 }
                 0x1c => self.regs[ra] = -self.regs[rb],
                 // swap nibbles
-                0x1d => {
-                    self.regs[ra] =
-                        Wrapping(self.regs[ra].0.wrapping_shr(4) | self.regs[ra].0.wrapping_shl(4));
-                }
+                0x1d => self.regs[ra] = Wrapping(self.regs[rb].0.rotate_left(4)),
 
                 // push
                 0x1e => {
@@ -291,7 +290,7 @@ impl Processor for Photon {
                         self.pc = imm;
                     }
                 }
-                // branch flase reg
+                // branch false reg
                 0b10101 => {
                     if self.regs[ra].0 == 0 {
                         self.pc = imm;

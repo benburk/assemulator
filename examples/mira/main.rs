@@ -177,9 +177,9 @@ impl Mira {
                 let addr = base + imm;
                 self.data.write(addr.0, value.0);
             }
-            Register::Y => self.regs[3] = value,
+            Register::Y => self.regs[4] = value,
             Register::RamY => {
-                let base = self.regs[3];
+                let base = self.regs[4];
                 let addr = base + imm;
                 self.data.write(addr.0, value.0);
             }
@@ -251,13 +251,13 @@ impl Processor for Mira {
         let byte1 = Wrapping(
             *self
                 .program
-                .get(usize::from(self.program_counter.0 + 1))
+                .get(usize::from(self.program_counter.0) + 1)
                 .unwrap_or(&0),
         );
         let byte2 = Wrapping(
             *self
                 .program
-                .get(usize::from(self.program_counter.0 + 2))
+                .get(usize::from(self.program_counter.0) + 2)
                 .unwrap_or(&0),
         );
 
@@ -278,19 +278,15 @@ impl Processor for Mira {
             let b;
 
             if inst_type == 0b01 {
-                a = if reg2 == Register::A {
-                    byte1
-                } else {
-                    self.read_argument(reg2, byte1)
-                };
+                // group 1: `arg op= immediate`
+                a = self.read_argument(reg2, byte1);
                 b = self.read_immediate(byte1, byte2, is_reg_ram(reg2));
+            } else if reg2 == Register::A {
+                // group 0 with `arg == A` is a nop
+                return usize::from(instruction_length);
             } else {
                 a = self.regs[0];
-                b = if reg2 == Register::A {
-                    byte1
-                } else {
-                    self.read_argument(reg2, byte1)
-                };
+                b = self.read_argument(reg2, byte1);
             }
 
             let result = match arg1 {
