@@ -4,7 +4,12 @@ comment = _{ ";" ~ (!NEWLINE ~ ANY)*}
 
 // c-style identifier
 identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-number = @{ "0b" ~ ASCII_BIN_DIGIT+ | "0x" ~ ASCII_HEX_DIGIT+ | ASCII_DIGIT+ }
+// digits can be separated with underscores, e.g. 0b0000_1010
+number = @{
+    "0b" ~ ASCII_BIN_DIGIT ~ (ASCII_BIN_DIGIT | "_")*
+    | "0x" ~ ASCII_HEX_DIGIT ~ (ASCII_HEX_DIGIT | "_")*
+    | ASCII_DIGIT ~ (ASCII_DIGIT | "_")*
+}
 
 symbol = @{"."? ~ identifier}
 

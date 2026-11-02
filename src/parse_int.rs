@@ -1,8 +1,12 @@
 /// Parses a string representing an integer.
 /// Works similarly to int(x, 0) in Python.
-/// Negative values are returned in two's complement.
+/// Negative values are returned in two's complement, and digits can be
+/// separated with underscores.
 #[allow(clippy::option_if_let_else)]
 pub fn parse_int(text: &str) -> Result<u64, String> {
+    if text.contains('_') {
+        return parse_int(&text.replace('_', ""));
+    }
     if let Some(x) = text.strip_prefix('-') {
         return parse_int(x).map(u64::wrapping_neg);
     }
@@ -30,6 +34,8 @@ mod tests {
         assert_eq!(parse_int("0b1010"), Ok(10));
         assert_eq!(parse_int("0o10"), Ok(8));
         assert_eq!(parse_int("10"), Ok(10));
+        assert_eq!(parse_int("0b0000_1010"), Ok(10));
+        assert_eq!(parse_int("1_000"), Ok(1000));
     }
 
     #[test]
