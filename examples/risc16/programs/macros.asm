@@ -9,8 +9,8 @@ PRINT:  .macro src
         .endm
 
 MOVI:   .macro dest, argument
-        lui $dest, ($argument >> 6) & 0x3ff
-        add $dest, $dest, $argument & 0x3f
+        lui $dest, ($argument>>6)&0x3ff
+        add $dest, $dest, $argument&0x3f
         .endm
 
 AND:    .macro dest, src1, src2
@@ -33,11 +33,11 @@ SUB:    .macro dest, src1, src2
 movi:   .macro dest, x
 
         .if $x >> 6 != 0 && ($x >> 6) & 1023 != 1023
-        lui $dest, ($x >> 6) & 1023
-        add $dest, $dest, $x & 63
+        lui $dest, ($x>>6)&1023
+        add $dest, $dest, $x&63
         .endif
 
         .if $x >> 6 == 0 || ($x >> 6) & 1023 == 1023
-        add $dest, r0, $x & 127
+        add $dest, r0, $x&127
         .endif
         .endm

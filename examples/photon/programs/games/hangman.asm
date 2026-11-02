@@ -40,7 +40,7 @@ loop:   add b, 1
         pop e, a                ; load char
         eq d, e                 ; compare guess to char
         bf start
-        st e, [b - 1]           ; if match, store guess in word2
+        st e, [b-1]             ; if match, store guess in word2
 start:  btd c, loop
 
         jmp main
