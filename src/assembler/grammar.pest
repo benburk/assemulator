@@ -26,7 +26,10 @@ string_quoted = _{ "\"" ~ string ~ "\"" }
 character = ${ "'" ~ char ~ "'" }
 
 
-arg = _{ expression | string_quoted }
+// memory operand: an expression that may add one register, e.g. [arr + x]
+memory = { "[" ~ expression ~ "]" }
+
+arg = _{ memory | expression | string_quoted }
 arg_list = _{ arg ~ ("," ~ arg)* }
 
 directive = { "." ~ identifier ~ arg_list? }

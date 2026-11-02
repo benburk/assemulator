@@ -232,6 +232,29 @@ impl SymbolTable {
     where
         U: TryFrom<u64> + Copy,
     {
+        let value = self.evaluate(arg, None)?;
+        let n_bits = 8 * std::mem::size_of::<U>();
+        mask(value, n_bits).map_err(|err| format_error(arg, &err))
+    }
+
+    /// Evaluates the offset of a memory operand like `[arr + x]`, where
+    /// `register` names its base register.
+    pub fn memory_offset(&self, arg: &Token, register: &str) -> Result<u64, String> {
+        let offset = self.evaluate(arg, Some((register, 0)))?;
+        // the register must be added to the offset, e.g. `[arr + x]` but not `[x * 2]`
+        for probe in [1, 0x1234_5678] {
+            if self.evaluate(arg, Some((register, probe)))? != offset.wrapping_add(probe) {
+                return Err(format_error(
+                    arg,
+                    "a register in a memory operand can only be added to the offset",
+                ));
+            }
+        }
+        Ok(offset)
+    }
+
+    /// Evaluates an expression, substituting `register` with its given value.
+    fn evaluate(&self, arg: &Token, register: Option<(&str, u64)>) -> Result<u64, String> {
         let text = arg.as_str();
         let offset = arg.as_span().start();
         let mut full_expr = String::new();
@@ -243,7 +266,10 @@ impl SymbolTable {
             );
 
             let (start, end, value) = match symbol.as_rule() {
-                Rule::label => (start, end, self.get_label(&symbol)?),
+                Rule::label => match register {
+                    Some((name, value)) if symbol.as_str() == name => (start, end, value),
+                    _ => (start, end, self.get_label(&symbol)?),
+                },
                 Rule::character => {
                     let inner = symbol.clone().into_inner().as_str();
                     let c = interpret_escaped_chars(inner);
@@ -262,9 +288,7 @@ impl SymbolTable {
         full_expr.push_str(&text[last..]);
         full_expr.retain(|c| c != ' ');
 
-        let value = expression::parse(&full_expr).map_err(|err| format_error(arg, &err))?;
-        let n_bits = 8 * std::mem::size_of::<U>();
-        mask(value, n_bits).map_err(|err| format_error(arg, &err))
+        expression::parse(&full_expr).map_err(|err| format_error(arg, &err))
     }
 
     /// Replace prefix.

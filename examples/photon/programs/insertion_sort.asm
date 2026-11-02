@@ -33,7 +33,7 @@ arr:    .i8 4, 1, 3, 2, 5
 main:   mov b, 4        ; length of array minus one
         add g, b, -1    ; g = b - 2
 
-.outer: ld c, g         ; c = [g]
+.outer: ld c, [g]       ; c = [g]
         mov f, b
         sub f, g
         add h, g, 1     ; h = g + 1
@@ -41,10 +41,10 @@ main:   mov b, 4        ; length of array minus one
 .inner: pop d, h        ; d = [h++]
         geq d, c        ; d >= c?
         bt .next        ; goto next
-        st d, h, -2     ; [h+2] = d
+        st d, [h - 2]   ; [h-2] = d
         btd f, .inner
 
-.next:  st c, h, -2
+.next:  st c, [h - 2]
         btd g, .outer
 
         ; print array

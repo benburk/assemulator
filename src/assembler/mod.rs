@@ -129,12 +129,14 @@ impl<T: Processor> Assembler<T> {
         } else if let Ok(opcode) = T::Opcode::try_from(opcode.as_str()) {
             let mut arguments = vec![];
             for arg in tokens {
-                if let Ok(reg) = T::Register::try_from(arg.as_str().trim()) {
-                    arguments.push(Argument::Reg(reg));
+                let argument = if arg.as_rule() == Rule::memory {
+                    self.memory_operand(&arg)?
+                } else if let Ok(reg) = T::Register::try_from(arg.as_str().trim()) {
+                    Argument::Reg(reg)
                 } else {
-                    let imm = self.expression::<u64>(&arg)?;
-                    arguments.push(Argument::Imm(imm));
-                }
+                    Argument::Imm(self.expression::<u64>(&arg)?)
+                };
+                arguments.push(argument);
             }
 
             let bytes = T::parse_assembly_line(self.program.len() as u64, opcode, &arguments);
@@ -332,6 +334,38 @@ impl<T: Processor> Assembler<T> {
             Err(_) if !self.is_final_pass => Ok(U::default()),
             Err(err) => Err(err),
         }
+    }
+
+    /// Parses a memory operand like `[arr + x]` into its base register and offset.
+    fn memory_operand(&self, arg: &Token) -> Result<Argument<T::Register>, String> {
+        let expr = arg.clone().into_inner().next().unwrap();
+        let mut registers = expr
+            .clone()
+            .into_inner()
+            .filter(|x| x.as_rule() == Rule::label)
+            .filter_map(|x| T::Register::try_from(x.as_str()).ok().map(|reg| (reg, x)));
+
+        let base = registers.next();
+        if let Some((_, extra)) = registers.next() {
+            return Err(format_error(
+                &extra,
+                "a memory operand can only use one register",
+            ));
+        }
+
+        let offset = match &base {
+            Some((_, name)) => self.symbol_table.memory_offset(&expr, name.as_str()),
+            None => self.symbol_table.expression::<u64>(&expr),
+        };
+        let offset = match offset {
+            Ok(offset) => offset,
+            Err(_) if !self.is_final_pass => 0,
+            Err(err) => return Err(err),
+        };
+        Ok(Argument::Mem {
+            base: base.map(|(reg, _)| reg),
+            offset,
+        })
     }
 
     /// Parses a body of text into instructions and adds it to the program.

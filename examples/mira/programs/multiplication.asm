@@ -37,4 +37,4 @@ main:
         bcs .do_add
         bne .loop
 
-        mov ticker, a
+        mov [ticker], a

@@ -10,6 +10,7 @@ use crate::{mask, Argument, Endian, Processor, Register};
 enum Opcode {
     Nop,
     Byte,
+    Load,
 }
 
 /// Minimal processor with one-byte instructions.
@@ -38,6 +39,11 @@ impl<const BIG_ENDIAN: bool> Processor for Test<BIG_ENDIAN> {
         match (opcode, arguments) {
             (Opcode::Nop, []) => Ok(vec![0]),
             (Opcode::Byte, &[Argument::Imm(x)]) => Ok(vec![mask(x, 8)?]),
+            // encodes the base register (0xff for none) and the offset
+            (Opcode::Load, &[Argument::Mem { base, offset }]) => {
+                let base = base.map_or(0xff, |reg| u8::try_from(reg.0).unwrap());
+                Ok(vec![base, mask(offset, 8)?])
+            }
             _ => Err("invalid instruction".to_owned()),
         }
     }
@@ -161,4 +167,25 @@ fn layout_change_between_passes_is_an_error() {
         program("nop\n.if later == 5\nnop\n.endif\nlater: nop\n"),
         [0, 0]
     );
+}
+
+#[test]
+fn memory_operands_split_base_and_offset() {
+    let source = "arr: .u8 0, 0, 0
+load [5]
+load [r1]
+load [r1 + 2]
+load [2 + r1]
+load [arr + r2 + 1]
+load [r3 - 1]
+";
+    assert_eq!(program(source), [0xff, 5, 1, 0, 1, 2, 1, 2, 2, 1, 3, 0xff]);
+}
+
+#[test]
+fn memory_operands_only_add_one_register() {
+    assert!(fails("load [r1 + r2]\n"));
+    assert!(fails("load [r1 * 2]\n"));
+    assert!(fails("load [4 - r1]\n"));
+    assert!(fails(".u8 [4]\n"));
 }

@@ -19,5 +19,5 @@ L2: rol b
     dec x
     bne L1
 
-    mov ramK, ticker, b ; 3
-    mov ramK, ticker, a ; 6
+    mov [ticker], b ; 3
+    mov [ticker], a ; 6

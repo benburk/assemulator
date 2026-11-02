@@ -1,7 +1,7 @@
 .include "ports.asm"
 
         mov a, 1
-        mov ticker, a
+        mov [ticker], a
 
 
 ; 80, 01, 98, f1

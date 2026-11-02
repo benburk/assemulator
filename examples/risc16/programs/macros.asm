@@ -5,7 +5,7 @@ JMP:    .macro dest
         .endm
 
 PRINT:  .macro src
-        sw $src, r0, ticker
+        sw $src, [ticker]
         .endm
 
 MOVI:   .macro dest, argument

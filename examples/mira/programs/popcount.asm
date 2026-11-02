@@ -9,7 +9,7 @@
         bne .loop
         adc c       ; dont forget final bit
 
-        mov ticker, a
+        mov [ticker], a
 
 ; 89 -> 10 001 001
 

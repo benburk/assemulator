@@ -7,7 +7,7 @@
 ; tmp d
 array_max:
         add c, -1
-        ld a, b         ; initialize max
+        ld a, [b]       ; initialize max
 .loop:  pop d, b        ; d = [b++]
         ges d, a
         mvt a, d        ; a = max(a, d)

@@ -4,7 +4,7 @@
 
 ; Collatz conjecture (14 bytes)
 ; starting value in A
-.loop:  mov ticker, a   ; print value
+.loop:  mov [ticker], a ; print value
         shr a           ; divide by 2
         beq end         ; if we hit 0 we're done
         bcc .loop       ; loop while even

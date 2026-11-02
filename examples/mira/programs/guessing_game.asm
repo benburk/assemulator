@@ -12,7 +12,7 @@ main:   mov b, 10
 
 loop:
         ; get guess
-        mov x, ramK, ticker
+        mov x, [ticker]
 
         ; A = 2 * guess - upper - lower
         mov a, x
@@ -36,7 +36,7 @@ guess_lower:
         mov y, 1        ; 1 => guess lower
 
 skip:
-        mov ramK, ticker, y
+        mov [ticker], y
 
         ; calculate upper - lower
         mov a, b
@@ -45,4 +45,4 @@ skip:
         bpl loop        ; loop while upper - lower >= 0
 
         ; GAME OVER
-        mov ramK, ticker, b ; you lose, i was thinking of b
+        mov [ticker], b ; you lose, i was thinking of b

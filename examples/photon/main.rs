@@ -41,7 +41,7 @@ impl Processor for Photon {
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String> {
         use enums::Opcode::*;
-        use Argument::{Imm, Reg};
+        use Argument::{Imm, Mem, Reg};
 
         let inst: u16 = match (opcode, arguments) {
             (And, &[Reg(ra), Reg(rb)]) => ra.to_a() | rb.to_b(),
@@ -93,16 +93,28 @@ impl Processor for Photon {
             (Bf, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1500 | mask::<u16>(x / 2, 8)?,
             (Jmp, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1600 | mask::<u16>(x / 2, 8)?,
             (Btd, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1700 | mask::<u16>(x / 2, 8)?,
-            (Ld, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1800 | mask::<u16>(x, 8)?,
-            (St, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1900 | mask::<u16>(x, 8)?,
+            (Ld, &[Reg(ra), Mem { base: None, offset }]) => {
+                ra.to_a() | 0x1800 | mask::<u16>(offset, 8)?
+            }
+            (St, &[Reg(ra), Mem { base: None, offset }]) => {
+                ra.to_a() | 0x1900 | mask::<u16>(offset, 8)?
+            }
             (Pld, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1a00 | mask::<u16>(x, 8)?,
             (Pst, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1b00 | mask::<u16>(x, 8)?,
-            (Ld, &[Reg(ra), Reg(rb), Imm(x)]) => {
-                ra.to_a() | 0x1c00 | rb.to_b() | mask::<u16>(x, 5)?
-            }
-            (St, &[Reg(ra), Reg(rb), Imm(x)]) => {
-                ra.to_a() | 0x1d00 | rb.to_b() | mask::<u16>(x, 5)?
-            }
+            (
+                Ld,
+                &[Reg(ra), Mem {
+                    base: Some(rb),
+                    offset,
+                }],
+            ) => ra.to_a() | 0x1c00 | rb.to_b() | mask::<u16>(offset, 5)?,
+            (
+                St,
+                &[Reg(ra), Mem {
+                    base: Some(rb),
+                    offset,
+                }],
+            ) => ra.to_a() | 0x1d00 | rb.to_b() | mask::<u16>(offset, 5)?,
             (Add, &[Reg(ra), Reg(rb), Imm(x)]) => {
                 ra.to_a() | 0x1e00 | rb.to_b() | mask::<u16>(x, 5)?
             }
@@ -119,8 +131,6 @@ impl Processor for Photon {
             (Shrb, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10111,
             (Neg, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b11100,
             (Swap, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b11101,
-            (Ld, &[Reg(ra), Reg(rb)]) => ra.to_a() | 0x1c00 | rb.to_b(),
-            (St, &[Reg(ra), Reg(rb)]) => ra.to_a() | 0x1d00 | rb.to_b(),
             _ => Err("Invalid instruction".to_owned())?,
         };
         Ok(inst.to_be_bytes().to_vec())

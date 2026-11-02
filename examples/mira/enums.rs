@@ -70,8 +70,12 @@ pub enum Register {
     C,
     X,
     Y,
+    // memory addressing modes, written as [k], [k + x] and [k + y]
+    #[strum(disabled)]
     RamK,
+    #[strum(disabled)]
     RamX,
+    #[strum(disabled)]
     RamY,
 }
 

@@ -9,6 +9,8 @@ pub enum Argument<T> {
     Reg(T),
     /// An immediate argument for an instruction
     Imm(u64),
+    /// A memory operand `[base + offset]`, e.g. `[ticker]` or `[arr + x]`
+    Mem { base: Option<T>, offset: u64 },
 }
 
 /// Byte order of multi-byte values.

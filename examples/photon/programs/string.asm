@@ -48,7 +48,7 @@ print:  jmp .start
 ; clobbers: a, b, c, d
 memcpy: jmp .start
 .loop:  pop d, a        ; read from a
-        st d, b         ; write to b
+        st d, [b]       ; write to b
         add b, 1
 .start: btd c, .loop
         ret

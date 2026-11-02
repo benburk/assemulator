@@ -26,25 +26,25 @@ arr:      .i8 8, 6, 4, 10, 36, 23, 48, 12, 42, 5
 
         mov c, 9
 
-outer:  mov b,  ramX,arr+1
+outer:  mov b, [arr + 1 + x]
         mov y, x
 
-inner:  mov a,  ramY,arr
+inner:  mov a, [arr + y]
         cmp b
         bcc next
-        mov ramY,arr+1,  a
+        mov [arr + 1 + y], a
         dec y
         bpl inner
 
-next:   mov ramY,arr+1,  b
+next:   mov [arr + 1 + y], b
         inc x
         dec c
         bne outer
 
         ; print the sorted array
         mov x, 0
-print:  mov a, ramX, arr
-        mov ramK, ticker, a
+print:  mov a, [arr + x]
+        mov [ticker], a
         inc x
         mov a, x
         cmp a, 10

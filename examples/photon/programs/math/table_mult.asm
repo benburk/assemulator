@@ -16,8 +16,8 @@ table_multiply:
         mov c, a
         add a, b
         sub b, c
-        ld a, a, table  ; a = (a+b)^2/4
-        ld b, b, table  ; b = (a-b)^2/4
+        ld a, [table + a] ; a = (a+b)^2/4
+        ld b, [table + b] ; b = (a-b)^2/4
         sub a, b
         ret
 

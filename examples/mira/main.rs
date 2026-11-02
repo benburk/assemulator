@@ -5,84 +5,43 @@ use std::num::Wrapping;
 use memory::MemoryMappedRam;
 
 use assemulator::{mask, run, Argument, Processor};
-use enums::{Opcode, Register};
+use enums::Register;
 
 fn is_reg_ram(reg: Register) -> bool {
     matches!(reg, Register::RamK | Register::RamX | Register::RamY)
 }
 
-fn two_op_no_imm(opcode: Opcode, mode: Register) -> Result<Vec<u8>, String> {
-    Ok(vec![u8::from(opcode) << 3 | u8::from(mode)])
+/// An instruction operand after mapping memory operands to addressing modes.
+#[derive(Debug, Clone, Copy)]
+enum Operand {
+    /// A register or addressing mode, with the address byte for memory modes.
+    Arg(Register, Option<u64>),
+    Imm(u64),
 }
 
-// type0 or type1 depending if register is ram or not
-fn two_op_with_imm(opcode: Opcode, mode: Register, imm: u64) -> Result<Vec<u8>, String> {
-    let mut bytes = vec![];
+fn operand(arg: &Argument<Register>) -> Result<Operand, String> {
+    Ok(match *arg {
+        Argument::Reg(reg) => Operand::Arg(reg, None),
+        Argument::Imm(imm) => Operand::Imm(imm),
+        Argument::Mem { base, offset } => {
+            let mode = match base {
+                None => Register::RamK,
+                Some(Register::X) => Register::RamX,
+                Some(Register::Y) => Register::RamY,
+                Some(reg) => return Err(format!("only x and y can index memory, not {reg:?}")),
+            };
+            Operand::Arg(mode, Some(offset))
+        }
+    })
+}
 
-    if is_reg_ram(mode) {
-        bytes.push(u8::from(opcode) << 3 | u8::from(mode));
-        bytes.push(mask::<u8>(imm, 8)?);
-    } else {
-        bytes.push(0b01_000_000 | u8::from(opcode) << 3 | u8::from(mode));
-        bytes.push(mask::<u8>(imm, 8)?);
+/// Encodes an instruction byte followed by any address and immediate bytes.
+fn encode(inst: u8, bytes: &[Option<u64>]) -> Result<Vec<u8>, String> {
+    let mut out = vec![inst];
+    for &byte in bytes.iter().flatten() {
+        out.push(mask::<u8>(byte, 8)?);
     }
-
-    Ok(bytes)
-}
-
-fn move_reg_reg(dest: Register, src: Register) -> Result<Vec<u8>, String> {
-    let inst: u8 = 0b1000_0000 | u8::from(dest) << 3 | u8::from(src);
-    Ok(vec![inst])
-}
-
-fn move_reg_imm(dest: Register, imm: u64) -> Result<Vec<u8>, String> {
-    // move immediate is encoded by having arg1 and arg2 the same
-    Ok(vec![
-        0b1000_0000 | u8::from(dest) << 3 | u8::from(dest),
-        mask::<u8>(imm, 8)?,
-    ])
-}
-
-fn load(dest: Register, src: Register, imm: u64) -> Result<Vec<u8>, String> {
-    Ok(vec![
-        0b1000_0000 | u8::from(dest) << 3 | u8::from(src),
-        mask::<u8>(imm, 8)?,
-    ])
-}
-
-fn store(dest: Register, imm: u64, src: Register) -> Result<Vec<u8>, String> {
-    Ok(vec![
-        0b1000_0000 | u8::from(dest) << 3 | u8::from(src),
-        mask::<u8>(imm, 8)?,
-    ])
-}
-
-fn store_const(imm: u64, src: Register) -> Result<Vec<u8>, String> {
-    Ok(vec![
-        0b1000_0000 | u8::from(Register::RamK) << 3 | u8::from(src),
-        mask::<u8>(imm, 8)?,
-    ])
-}
-
-fn one_op_reg(opcode: Opcode, reg: Register) -> Result<Vec<u8>, String> {
-    // implemented as sub immediate for convenience
-    Ok(vec![0b1100_0000 | u8::from(opcode) << 3 | u8::from(reg)])
-}
-
-fn one_op_ram(opcode: Opcode, reg: Register, imm: u64) -> Result<Vec<u8>, String> {
-    // implemented as sub immediate for convenience
-    Ok(vec![
-        0b1100_0000 | u8::from(opcode) << 3 | u8::from(reg),
-        mask::<u8>(imm, 8)?,
-    ])
-}
-
-fn branch(opcode: Opcode, imm: u64) -> Result<Vec<u8>, String> {
-    Ok(vec![0b1111_1000 | u8::from(opcode), mask::<u8>(imm, 8)?])
-}
-
-fn jump_imm(imm: u64) -> Result<Vec<u8>, String> {
-    Ok(vec![0b1111_0000, mask::<u8>(imm, 8)?])
+    Ok(out)
 }
 
 fn compute_instruction_length(opcode: u8) -> u8 {
@@ -206,40 +165,45 @@ impl Processor for Mira {
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String> {
         use enums::Opcode::*;
-        use Argument::{Imm, Reg};
-        use Register::*;
+        use Operand::{Arg, Imm};
 
-        let instruction = match (opcode, arguments) {
-            (opcode @ (Add | Adc | Sub | Sbc | Cmp | And | Ior | Xor), &[Reg(a)]) => {
-                two_op_no_imm(opcode, a)
-            }
-            (opcode @ (Add | Adc | Sub | Sbc | Cmp | And | Ior | Xor), &[Reg(a), Imm(b)]) => {
-                two_op_with_imm(opcode, a, b)
-            }
+        let operands = arguments
+            .iter()
+            .map(operand)
+            .collect::<Result<Vec<_>, _>>()?;
+        let op = u8::from(opcode) << 3;
 
-            (Mov, &[Reg(a), Reg(b @ (A | B | C | X | Y))]) if a != b => move_reg_reg(a, b),
-            (Mov, &[Reg(a @ (A | B | C | X | Y)), Imm(b)]) => move_reg_imm(a, b),
-            (Mov, &[Reg(a @ (A | B | C | X | Y)), Reg(b @ (RamK | RamX | RamY)), Imm(c)]) => {
-                load(a, b, c)
+        match (opcode, operands.as_slice()) {
+            // group 0: A op= arg
+            (Add | Adc | Sub | Sbc | Cmp | And | Ior | Xor, &[Arg(a, addr)]) => {
+                encode(op | u8::from(a), &[addr])
             }
-            (Mov, &[Reg(a @ (RamK | RamX | RamY)), Imm(b), Reg(c @ (A | B | C | X | Y))]) => {
-                store(a, b, c)
+            // group 1: arg op= immediate
+            (Add | Adc | Sub | Sbc | Cmp | And | Ior | Xor, &[Arg(a, addr), Imm(imm)]) => {
+                encode(0b0100_0000 | op | u8::from(a), &[addr, Some(imm)])
             }
-            (Mov, &[Imm(a), Reg(b @ (A | B | C | X | Y))]) => store_const(a, b),
-
-            (opcode @ (Shl | Shr | Rol | Ror | Inc | Dec), &[Reg(a)]) => one_op_reg(opcode, a),
-            (opcode @ (Shl | Shr | Rol | Ror | Inc | Dec), &[Reg(a), Imm(b)]) => {
-                one_op_ram(opcode, a, b)
+            // group 2: move, where dest == arg means an immediate
+            (Mov, &[Arg(a, None), Imm(imm)]) => {
+                encode(0b1000_0000 | u8::from(a) << 3 | u8::from(a), &[Some(imm)])
             }
-
-            (Jmp, &[Imm(a)]) => jump_imm(a),
-            (opcode @ (Bcc | Bcs | Bne | Beq | Bpl | Bmi | Bvs | Bvc), &[Imm(a)]) => {
-                branch(opcode, a)
+            (Mov, &[Arg(a, a_addr), Arg(b, b_addr)])
+                if a != b && (a_addr.is_none() || b_addr.is_none()) =>
+            {
+                encode(
+                    0b1000_0000 | u8::from(a) << 3 | u8::from(b),
+                    &[a_addr, b_addr],
+                )
             }
-            _ => Err(format!("invalid instruction: {opcode:?} {:?}", arguments))?,
-        };
-
-        Ok(instruction?.to_vec())
+            // group 3: one-operand ops and jumps
+            (Shl | Shr | Rol | Ror | Inc | Dec, &[Arg(a, addr)]) => {
+                encode(0b1100_0000 | op | u8::from(a), &[addr])
+            }
+            (Jmp, &[Imm(dest)]) => encode(0b1111_0000, &[Some(dest)]),
+            (Bcc | Bcs | Bne | Beq | Bpl | Bmi | Bvs | Bvc, &[Imm(dest)]) => {
+                encode(0b1111_1000 | u8::from(opcode), &[Some(dest)])
+            }
+            _ => Err(format!("invalid instruction: {opcode:?} {arguments:?}")),
+        }
     }
 
     fn step(&mut self) -> usize {
