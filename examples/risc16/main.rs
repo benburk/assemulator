@@ -1,6 +1,6 @@
 use std::num::Wrapping;
 
-use assemulator::{mask, run, Argument, InstructionSet, Port, Processor, State, Step};
+use assemulator::{Argument, InstructionSet, Port, Processor, State, Step, mask, run};
 
 mod enums;
 
@@ -54,8 +54,8 @@ impl InstructionSet for Risc16 {
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String> {
-        use enums::Opcode::*;
         use Argument::{Imm, Mem, Reg};
+        use enums::Opcode::*;
         let instruction = match (opcode, arguments) {
             // add
             (Add, &[Reg(a), Reg(b), Reg(c)]) => fmt1(0b000, a, b, c),
@@ -68,32 +68,44 @@ impl InstructionSet for Risc16 {
             // port instructions address from r0, e.g. [char]
             (
                 Lw,
-                &[Reg(a), Mem {
-                    base: None | Some(R0),
-                    offset,
-                }],
+                &[
+                    Reg(a),
+                    Mem {
+                        base: None | Some(R0),
+                        offset,
+                    },
+                ],
             ) => fmt2(0b100, a, R0, offset)?,
             (
                 Sw,
-                &[Reg(a), Mem {
-                    base: None | Some(R0),
-                    offset,
-                }],
+                &[
+                    Reg(a),
+                    Mem {
+                        base: None | Some(R0),
+                        offset,
+                    },
+                ],
             ) => fmt2(0b101, a, R0, offset)?,
             // memory load and store, converting byte offsets to words
             (
                 Lw,
-                &[Reg(a), Mem {
-                    base: Some(b),
-                    offset,
-                }],
+                &[
+                    Reg(a),
+                    Mem {
+                        base: Some(b),
+                        offset,
+                    },
+                ],
             ) => fmt2(0b100, a, b, arith_shift_right(offset))?,
             (
                 Sw,
-                &[Reg(a), Mem {
-                    base: Some(b),
-                    offset,
-                }],
+                &[
+                    Reg(a),
+                    Mem {
+                        base: Some(b),
+                        offset,
+                    },
+                ],
             ) => fmt2(0b101, a, b, arith_shift_right(offset))?,
             (Beq, &[Reg(a), Reg(b), Imm(c)]) => {
                 fmt2(0b110, a, b, arith_shift_right(c.wrapping_sub(address)))?

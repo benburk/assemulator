@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::get_input::input;
 
-use super::{util::read_int, Port};
+use super::{Port, util::read_int};
 
 #[derive(Default)]
 pub struct State<T> {

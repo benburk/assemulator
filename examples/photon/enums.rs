@@ -90,6 +90,8 @@ pub enum Opcode {
     Pst,
     /// Return from subroutine
     Ret,
+    /// Stop execution
+    Halt,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, EnumString)]

@@ -1,5 +1,5 @@
 mod enums;
-use assemulator::{mask, run, Argument, InstructionSet, Port, Processor, State, Step};
+use assemulator::{Argument, InstructionSet, Port, Processor, State, Step, mask, run};
 use std::num::Wrapping;
 type Word = u8;
 
@@ -39,8 +39,8 @@ impl InstructionSet for Photon {
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String> {
-        use enums::Opcode::*;
         use Argument::{Imm, Mem, Reg};
+        use enums::Opcode::*;
 
         let inst: u16 = match (opcode, arguments) {
             (And, &[Reg(ra), Reg(rb)]) => ra.to_a() | rb.to_b(),
@@ -102,23 +102,30 @@ impl InstructionSet for Photon {
             (Pst, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1b00 | mask::<u16>(x, 8)?,
             (
                 Ld,
-                &[Reg(ra), Mem {
-                    base: Some(rb),
-                    offset,
-                }],
+                &[
+                    Reg(ra),
+                    Mem {
+                        base: Some(rb),
+                        offset,
+                    },
+                ],
             ) => ra.to_a() | 0x1c00 | rb.to_b() | mask::<u16>(offset, 5)?,
             (
                 St,
-                &[Reg(ra), Mem {
-                    base: Some(rb),
-                    offset,
-                }],
+                &[
+                    Reg(ra),
+                    Mem {
+                        base: Some(rb),
+                        offset,
+                    },
+                ],
             ) => ra.to_a() | 0x1d00 | rb.to_b() | mask::<u16>(offset, 5)?,
             (Add, &[Reg(ra), Reg(rb), Imm(x)]) => {
                 ra.to_a() | 0x1e00 | rb.to_b() | mask::<u16>(x, 5)?
             }
             (Jsr, &[Imm(x)]) => 0xf300 | mask::<u16>(x / 2, 8)?,
             (Ret, &[]) => 0xf600,
+            (Halt, &[]) => 0x1f00,
             (Add, &[Reg(ra), Imm(x)]) => ra.to_a() | 0x1e00 | ra.to_b() | mask::<u16>(x, 5)?,
             (Shl, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10000,
             (Shlc, &[Reg(ra)]) => ra.to_a() | ra.to_b() | 0b10001,

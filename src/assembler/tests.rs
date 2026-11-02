@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use strum_macros::EnumString;
 
 use super::{Assembler, AssemblyResult};
-use crate::{mask, Argument, Endian, InstructionSet, Register};
+use crate::{Argument, Endian, InstructionSet, Register, mask};
 
 #[derive(Debug, Clone, Copy, EnumString)]
 #[strum(serialize_all = "lowercase")]
@@ -179,4 +179,15 @@ fn memory_operands_only_add_one_register() {
     assert!(fails("load [r1 * 2]\n"));
     assert!(fails("load [4 - r1]\n"));
     assert!(fails(".u8 [4]\n"));
+}
+
+#[test]
+fn macros_substitute_whole_arguments() {
+    let source = "emit: .macro x, xy
+.u8 $xy, $x
+.endm
+emit 1, 2
+";
+    assert_eq!(data(source), [2, 1]);
+    assert!(fails("emit: .macro x\n.u8 $x\n.endm\nemit 1, 2\n"));
 }

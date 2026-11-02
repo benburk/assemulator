@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::mask;
 
-use super::{expression, format_error, parser::Rule, template::Template, Token};
+use super::{Token, expression, format_error, parser::Rule, template::Template};
 
 pub fn interpret_escaped_chars(text: &str) -> String {
     let mut out = String::new();
@@ -277,7 +277,7 @@ impl SymbolTable {
                 }
                 Rule::number => continue,
                 Rule::string => {
-                    return Err(format_error(&symbol, "expected a number, not a string"))
+                    return Err(format_error(&symbol, "expected a number, not a string"));
                 }
                 _ => return Err(format_error(&symbol, "unexpected token")),
             };

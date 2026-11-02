@@ -1,13 +1,13 @@
 [package]
 name = "assemulator"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.8", features = ["derive"] }
-pest = "2.7.11"
-pest_derive = "2.7.11"
+clap = { version = "4.6.7", features = ["derive"] }
+pest = "2.9.5"
+pest_derive = "2.9.5"
 
 [dev-dependencies]
-strum = "0.26.3"
-strum_macros = "0.26.3"
+strum = "0.28.0"
+strum_macros = "0.28.0"

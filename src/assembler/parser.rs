@@ -1,4 +1,4 @@
-use pest::{iterators::Pairs, Parser};
+use pest::{Parser, iterators::Pairs};
 
 /// Pest parser for the assembler.
 #[derive(pest_derive::Parser)]

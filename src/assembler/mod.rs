@@ -4,9 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use parser::{parse, Rule};
+use parser::{Rule, parse};
 use pest::iterators::{Pair, Pairs};
-use symbol_table::{interpret_escaped_chars, SymbolTable};
+use symbol_table::{SymbolTable, interpret_escaped_chars};
 use template::Template;
 
 use crate::{Argument, Endian, InstructionSet};
@@ -131,6 +131,14 @@ impl<T: InstructionSet> Assembler<T> {
 
         if let Some(template) = self.symbol_table.get_macro(opcode.as_str()) {
             let args = tokens.map(|x| x.as_str()).collect::<Vec<_>>();
+            if args.len() != template.arity() {
+                let msg = format!(
+                    "macro expects {} arguments, got {}",
+                    template.arity(),
+                    args.len()
+                );
+                return Err(format_error(pair, &msg));
+            }
             let body = template.expand(&args);
 
             self.parse_lines(body, path).map_err(|error| {

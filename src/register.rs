@@ -10,10 +10,6 @@ impl<const N: usize> TryFrom<&str> for Register<N> {
             .strip_prefix('r')
             .and_then(|x| x.parse::<usize>().ok())
             .ok_or(())?;
-        if index < N {
-            Ok(Self(index))
-        } else {
-            Err(())
-        }
+        if index < N { Ok(Self(index)) } else { Err(()) }
     }
 }

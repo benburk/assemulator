@@ -51,11 +51,10 @@ skip:   eq c, d         ; loop while upper != lower
         mov a, game_over
         jsr print
         pst c, ticker  ; you lose, i was thinking of x
-        jmp end         ; running past the last instruction halts
+        halt
 
 
 ; Run game with bounds [0, 10]
 main:   mov c, 10       ; initialize upper bound
         mov d, 0        ; ... lower bound
         jmp game
-end:

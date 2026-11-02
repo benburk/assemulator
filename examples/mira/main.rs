@@ -4,7 +4,7 @@ use std::num::Wrapping;
 
 use memory::MemoryMappedRam;
 
-use assemulator::{mask, run, Argument, InstructionSet, Processor, Step};
+use assemulator::{Argument, InstructionSet, Processor, Step, mask, run};
 use enums::Register;
 
 fn is_reg_ram(reg: Register) -> bool {
@@ -94,11 +94,7 @@ impl Mira {
         byte2: Wrapping<u8>,
         plus_one: bool,
     ) -> Wrapping<u8> {
-        if plus_one {
-            byte2
-        } else {
-            byte1
-        }
+        if plus_one { byte2 } else { byte1 }
     }
 
     fn read_argument(&mut self, reg: Register, imm: Wrapping<u8>) -> Result<Wrapping<u8>, String> {
@@ -137,8 +133,8 @@ impl InstructionSet for Mira {
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String> {
-        use enums::Opcode::*;
         use Operand::{Arg, Imm};
+        use enums::Opcode::*;
 
         let operands = arguments
             .iter()
