@@ -17,6 +17,24 @@ pub enum Endian {
     Little,
 }
 
+impl Endian {
+    /// Converts bytes to 16-bit words in this byte order, padding a trailing
+    /// odd byte with zero.
+    #[must_use]
+    pub fn u16_words(self, bytes: &[u8]) -> Vec<u16> {
+        bytes
+            .chunks(2)
+            .map(|pair| {
+                let pair = [pair[0], pair.get(1).copied().unwrap_or_default()];
+                match self {
+                    Self::Big => u16::from_be_bytes(pair),
+                    Self::Little => u16::from_le_bytes(pair),
+                }
+            })
+            .collect()
+    }
+}
+
 /// Describes how to assemble an instruction set.
 pub trait InstructionSet {
     type Opcode: for<'a> TryFrom<&'a str> + Copy + std::fmt::Debug;
@@ -44,4 +62,15 @@ pub trait InstructionSet {
         opcode: Self::Opcode,
         arguments: &[Argument<Self::Register>],
     ) -> Result<Vec<u8>, String>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Endian;
+
+    #[test]
+    fn converts_bytes_to_words() {
+        assert_eq!(Endian::Big.u16_words(&[0x12, 0x34, 0x56]), [0x1234, 0x5600]);
+        assert_eq!(Endian::Little.u16_words(&[0x12, 0x34]), [0x3412]);
+    }
 }

@@ -251,9 +251,6 @@ impl<T: InstructionSet> Assembler<T> {
                     .next()
                     .ok_or_else(|| Error::at(&command, "Expected count"))?;
                 let count = self.expression::<usize>(&arg)?;
-                if count > 256 {
-                    Err(Error::at(&arg, "bad count"))?;
-                }
                 self.declare_data_label(label)?;
                 self.data.resize(self.data.len() + count, 0);
             }

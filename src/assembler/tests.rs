@@ -217,3 +217,21 @@ fn unclosed_blocks_point_at_their_start() {
     assert!(error("nop\n.if 1\nnop\n").contains(".asm:2:1"));
     assert!(error("m: .macro\nnop\n").contains("missing .endm"));
 }
+
+#[test]
+fn zero_has_no_size_limit() {
+    assert_eq!(data(".zero 300\n").len(), 300);
+}
+
+#[test]
+fn namespaced_includes_see_outer_symbols() {
+    let lib = format!("assemulator-test-lib-{}.asm", std::process::id());
+    let lib_path = std::env::temp_dir().join(&lib);
+    // `limit` comes from the including file; `double` and `value` are namespaced
+    let lib_source = "double: .macro x\n.u8 $x, $x\n.endm\nvalue: .set limit+1\ndouble value\n";
+    std::fs::write(&lib_path, lib_source).unwrap();
+    let source = format!("limit: .set 4\nlib: .include \"{lib}\"\n.u8 lib::value\n");
+    let result = assemble_with::<true>(&source);
+    std::fs::remove_file(&lib_path).unwrap();
+    assert_eq!(result.unwrap().data, [5, 5, 5]);
+}

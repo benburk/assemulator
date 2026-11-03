@@ -32,9 +32,9 @@ check:
 test:
     cargo test --workspace
 
-# Run an example CPU, e.g. `just run photon examples/photon/programs/hello_world.asm run`
-run cpu *args:
-    cargo run --release --example {{ cpu }} -- {{ args }}
+# Run a program on an example CPU, e.g. `just run photon examples/photon/programs/hello_world.asm`
+run cpu file *args:
+    cargo run --release --example {{ cpu }} -- run {{ file }} {{ args }}
 
 # Assemble every finished example program and check the output of those with a .out file
 examples:
@@ -49,9 +49,9 @@ examples:
         input="${program%.asm}.in"
         [ -f "$input" ] || input=/dev/null
         if [ -f "$expected" ]; then
-            ./target/release/examples/$cpu "$program" run < "$input" | diff -u "$expected" - || { echo "FAIL $program"; status=1; }
+            ./target/release/examples/$cpu run "$program" < "$input" | diff -u "$expected" - || { echo "FAIL $program"; status=1; }
         else
-            ./target/release/examples/$cpu "$program" assemble > /dev/null || { echo "FAIL $program"; status=1; }
+            ./target/release/examples/$cpu assemble "$program" > /dev/null || { echo "FAIL $program"; status=1; }
         fi
     done
     exit $status

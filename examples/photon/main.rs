@@ -154,10 +154,7 @@ impl Processor for Photon {
     fn new(addr: u64, program: Vec<u8>, data: Vec<u8>) -> Self {
         Self {
             pc: Wrapping((addr / 2) as Word),
-            program: program
-                .chunks_exact(2)
-                .map(|x| u16::from_be_bytes([x[0], x[1]]))
-                .collect(),
+            program: Self::ENDIAN.u16_words(&program),
             data,
             ..Default::default()
         }

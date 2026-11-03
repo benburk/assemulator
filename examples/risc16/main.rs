@@ -14,12 +14,6 @@ fn arith_shift_right(x: u64) -> u64 {
     ((x as i64) / 2) as u64
 }
 
-fn convert_u8_to_u16(data: Vec<u8>) -> Vec<u16> {
-    data.chunks_exact(2)
-        .map(|x| u16::from_be_bytes([x[0], x[1]]))
-        .collect()
-}
-
 fn invalid_address(addr: Word) -> String {
     format!("invalid data address {addr:#x}")
 }
@@ -125,8 +119,8 @@ impl Processor for Risc16 {
         let program_counter = Word::try_from(program_counter / 2).unwrap();
         Risc16 {
             program_counter: Wrapping(program_counter),
-            program: convert_u8_to_u16(program),
-            data: convert_u8_to_u16(data),
+            program: Self::ENDIAN.u16_words(&program),
+            data: Self::ENDIAN.u16_words(&data),
             ..Default::default()
         }
     }

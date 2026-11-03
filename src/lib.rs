@@ -8,7 +8,9 @@ mod port;
 mod processor;
 mod register;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use assembler::AssemblyResult;
 
 use clap::Parser;
 use get_input::input;
@@ -21,41 +23,44 @@ pub use register::Register;
 #[derive(Parser)]
 #[command(about = "Assemulator")]
 struct Args {
-    /// Action
     #[command(subcommand)]
     action: Action,
-
-    /// Input file
-    file: PathBuf,
 }
 
 /// Actions that can be performed
 #[derive(clap::Subcommand)]
 enum Action {
-    /// Assemble the program
-    Assemble,
+    /// Assemble the program and print its bytes
+    Assemble {
+        /// Input file
+        file: PathBuf,
+    },
     /// Run the program
     Run {
+        /// Input file
+        file: PathBuf,
         /// Print the processor state and wait for enter after each step
         #[arg(long)]
         debug: bool,
     },
 }
 
-pub fn run<T: Processor>() {
-    let args = Args::parse();
-
-    let asm = assembler::Assembler::<T>::assemble(&args.file).unwrap_or_else(|e| {
+fn assemble<T: Processor>(file: &Path) -> AssemblyResult {
+    assembler::Assembler::<T>::assemble(file).unwrap_or_else(|e| {
         eprintln!("{e}");
         std::process::exit(1);
-    });
+    })
+}
 
-    match args.action {
-        Action::Assemble => {
+pub fn run<T: Processor>() {
+    match Args::parse().action {
+        Action::Assemble { file } => {
+            let asm = assemble::<T>(&file);
             println!("Data: {:#04x?}", asm.data);
             println!("Program: {:#04x?}", asm.program);
         }
-        Action::Run { debug } => {
+        Action::Run { file, debug } => {
+            let asm = assemble::<T>(&file);
             let mut state = T::new(asm.start, asm.program, asm.data);
             loop {
                 if debug {

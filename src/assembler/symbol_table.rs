@@ -168,13 +168,21 @@ impl SymbolTable {
     }
 
     pub fn get_macro(&self, label: &str) -> Option<&Template> {
-        let value = self.symbols.get(label)?;
+        let value = self.lookup(label)?;
 
         let LabelType::Template(ref template) = value.label else {
             return None;
         };
 
         Some(template)
+    }
+
+    /// Looks up a global label, preferring the current file's namespace
+    /// and falling back to the outer scope.
+    fn lookup(&self, label: &str) -> Option<&LabelEntry> {
+        self.symbols
+            .get(&self.resolve_label(label))
+            .or_else(|| self.symbols.get(label))
     }
 
     fn get_local_label(&self, label: &str) -> Option<&LabelEntry> {
@@ -208,7 +216,7 @@ impl SymbolTable {
         let entry = if is_local_label(&label_str) {
             self.get_local_label(&label_str)
         } else {
-            self.symbols.get(&label_str)
+            self.lookup(label.as_str())
         };
 
         match entry {
