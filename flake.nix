@@ -1,7 +1,5 @@
 {
-  inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
-  };
+  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
 
   outputs =
     { self, nixpkgs }:
@@ -23,15 +21,16 @@
         {
           default = pkgs.mkShell {
             packages = with pkgs; [
-              cargo
-              rustc
-              clippy
-              rust-analyzer
-              rustfmt
+              just
               dprint
               fd
               ripgrep
               nixfmt
+              cargo
+              rustc
+              clippy
+              rustfmt
+              rust-analyzer
             ];
           };
         }

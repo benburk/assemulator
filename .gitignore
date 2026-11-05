@@ -1,3 +1,6 @@
-.claude/
 .env
+.direnv/
+.claude/worktrees/
+.claude/settings.local.json
+
 target/
