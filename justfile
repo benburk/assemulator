@@ -5,10 +5,6 @@ set lazy
 default:
     just --list --unsorted
 
-# Install dependencies and set up the development environment
-bootstrap:
-    cargo build --all-targets
-
 alias fmt := format
 
 # Format the code and docs
@@ -31,8 +27,8 @@ check:
     cargo fmt --all -- --check
     cargo clippy --workspace --all-targets -- -D warnings
 
-# Run the tests
-test:
+# Assemble the example programs and check their output, then run the tests
+test: examples
     cargo test --workspace
 
 # Run a program on an example CPU, e.g. `just run photon examples/photon/programs/hello_world.asm`
